@@ -594,7 +594,7 @@ static int fw_parse_header(struct tas2557_priv *pTAS2557,
 	pFirmware->mnDevice = fw_convert_number(pData);
 	pData += 4;
 
-	if(pFirmware->mnDevice != 2){
+	if(pFirmware->mnDevice != 3){
 		dev_err(pTAS2557->dev, 
 			"device %d, not TAS2557", pFirmware->mnDevice);
 		return -1;
