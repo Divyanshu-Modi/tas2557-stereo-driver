@@ -1344,8 +1344,8 @@ int tas2557_set_program(struct tas2557_priv *pTAS2557,
 	tas2557_load_data(pTAS2557, &(pConfiguration->mData), TAS2557_BLOCK_CFG_PRE_DEV_A);
 	tas2557_load_data(pTAS2557, &(pConfiguration->mData), TAS2557_BLOCK_CFG_PRE_DEV_B);
 
-	nResult = pTAS2557->read(pTAS2557, channel_left, TAS2557_PLL_CLKIN_REG, &Value);
-	dev_info(pTAS2557->dev, "TAS2557 PLL_CLKIN = 0x%02X\n", Value);
+	//nResult = pTAS2557->read(pTAS2557, channel_left, TAS2557_PLL_CLKIN_REG, &Value);
+	//dev_info(pTAS2557->dev, "TAS2557 PLL_CLKIN = 0x%02X\n", Value);
 //	p_tas2557_startup_data[TAS2557_STARTUP_DATA_PLL_CLKIN_INDEX] = Value;
 
 	tas2557_load_configuration(pTAS2557, nConfiguration, true);
