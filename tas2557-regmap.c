@@ -23,7 +23,7 @@
 ** =============================================================================
 */
 
-#ifdef CONFIG_TAS2557_I2C_STEREO
+#ifdef CONFIG_TAS2557_REGMAP_STEREO
 
 #define DEBUG
 #include <linux/module.h>
