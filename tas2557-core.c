@@ -124,6 +124,16 @@ static unsigned int p_tas2557_isense_threshold_data[] =
 	0xFFFFFFFF, 0xFFFFFFFF
 };
 
+static unsigned int p_tas2557_irq_config[] =
+{
+	//channel_both, TAS2557_GPIO4_PIN_REG, 0x07,	// set GPIO4 as int1, default
+	channel_both, TAS2557_INT_GEN1_REG, 0x11,	// enable spk OC and OV
+	channel_both, TAS2557_INT_GEN2_REG, 0x11,	// enable clk err1 and die OT
+	channel_both, TAS2557_INT_GEN3_REG, 0x11,	// enable clk err2 and brownout
+	channel_both, TAS2557_INT_GEN4_REG, 0x01,	// disable SAR, enable clk halt
+	0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF
+};
+
 #if 0
 static unsigned int p_tas2557_default_data[] = {
 	channel_both, TAS2557_ASI1_DAC_FORMAT_REG, 0x10,	//ASI1 DAC word length = 24 bits
@@ -280,6 +290,11 @@ static int tas2557_dev_load_blk_data(
 	return ret;
 }
 
+void tas2557_configIRQ(struct tas2557_priv *pTAS2557)
+{
+	tas2557_dev_load_data(pTAS2557, p_tas2557_irq_config);
+}
+
 int tas2557_setLoad(struct tas2557_priv *pTAS2557, int load)
 {
 	int ret = 0;
@@ -382,12 +397,14 @@ void tas2557_enable(struct tas2557_priv *pTAS2557, bool bEnable)
 			tas2557_dev_load_data(pTAS2557, p_tas2557_startup_data);
 			dev_dbg(pTAS2557->dev, "Enable: load unmute sequence\n");
 			tas2557_dev_load_data(pTAS2557, p_tas2557_unmute_data);
+			pTAS2557->enableIRQ(pTAS2557, 1);
 			pTAS2557->mbPowerUp = true;
 		}
 	} else {
 		if (pTAS2557->mbPowerUp) {
 			dev_dbg(pTAS2557->dev, "Enable: load shutdown sequence\n");
 			tas2557_dev_load_data(pTAS2557, p_tas2557_shutdown_data);
+			pTAS2557->enableIRQ(pTAS2557, 0);
 			//tas2557_dev_load_data(pTAS2557, p_tas2557_shutdown_clk_err);
 			pTAS2557->mbPowerUp = false;
 		}
@@ -1010,6 +1027,7 @@ static void tas2557_load_configuration(struct tas2557_priv *pTAS2557,
 			tas2557_dev_load_data(pTAS2557, p_tas2557_shutdown_data);
 			dev_dbg(pTAS2557->dev, "TAS2557: load new PLL: %s, block data\n",
 				pNewPLL->mpName);
+			pTAS2557->enableIRQ(pTAS2557, 0);
 			tas2557_load_block(pTAS2557, &(pNewPLL->mBlock));
 			pTAS2557->mnCurrentSampleRate = pNewConfiguration->mnSamplingRate;
 			dev_dbg(pTAS2557->dev,
@@ -1030,6 +1048,7 @@ static void tas2557_load_configuration(struct tas2557_priv *pTAS2557,
 			tas2557_dev_load_data(pTAS2557, p_tas2557_startup_data);
 			dev_dbg(pTAS2557->dev, "TAS2557: unmute TAS2557\n");
 			tas2557_dev_load_data(pTAS2557, p_tas2557_unmute_data);
+			pTAS2557->enableIRQ(pTAS2557, 1);
 		} else {
 			dev_dbg(pTAS2557->dev,
 				"TAS2557 is powered up, no change in PLL: load new configuration: %s, coeff block data\n",
@@ -1303,9 +1322,10 @@ int tas2557_set_program(struct tas2557_priv *pTAS2557,
 	}
 	
 	pTAS2557->mnCurrentProgram = nProgram;
-	if(pTAS2557->mbPowerUp)
+	if(pTAS2557->mbPowerUp){
 		nResult = tas2557_dev_load_data(pTAS2557, p_tas2557_mute_DSP_down_data);
-
+		pTAS2557->enableIRQ(pTAS2557, 0);
+	}
 	pTAS2557->write(pTAS2557, channel_both, TAS2557_SW_RESET_REG, 0x01);
 	udelay(1000);
 	
@@ -1325,7 +1345,6 @@ int tas2557_set_program(struct tas2557_priv *pTAS2557,
 	dev_info(pTAS2557->dev, "Left uCDSP Checksum: 0x%02x\n", Value);
 	nResult = pTAS2557->read(pTAS2557, channel_right, TAS2557_CRC_CHECKSUM_REG, &Value);
 	dev_info(pTAS2557->dev, "Right uCDSP Checksum: 0x%02x\n", Value);	
-
 
 	pTAS2557->mnCurrentConfiguration = nConfiguration;
 
@@ -1355,6 +1374,7 @@ int tas2557_set_program(struct tas2557_priv *pTAS2557,
 		dev_dbg(pTAS2557->dev,
 			"device powered up, load unmute\n");
 		tas2557_dev_load_data(pTAS2557, p_tas2557_unmute_data);
+		pTAS2557->enableIRQ(pTAS2557, 1);
 	}
 
 	return 0;
@@ -1410,17 +1430,30 @@ int tas2557_parse_dt(struct device *dev,
 		dev_dbg(pTAS2557->dev, "ti,load=%d", pTAS2557->mnLoad);
 	}
 
-		
-	pTAS2557->mnResetGPIO = of_get_named_gpio(np, "ti,cdc-reset-gpio", 0);
-	if (pTAS2557->mnResetGPIO < 0) {
-		dev_err(pTAS2557->dev, "Looking up %s property in node %s failed %d\n",
-			"ti,cdc-reset-gpio", np->full_name,
-			pTAS2557->mnResetGPIO);
-		ret = -1;
-	}else{
-		dev_dbg(pTAS2557->dev, "ti,cdc-reset-gpio=%d\n", pTAS2557->mnResetGPIO);
+	if(ret >=0){	
+		pTAS2557->mnResetGPIO = of_get_named_gpio(np, "ti,cdc-reset-gpio", 0);
+		if (pTAS2557->mnResetGPIO < 0) {
+			dev_err(pTAS2557->dev, "Looking up %s property in node %s failed %d\n",
+				"ti,cdc-reset-gpio", np->full_name,
+				pTAS2557->mnResetGPIO);
+			ret = -1;
+		}else{
+			dev_dbg(pTAS2557->dev, "ti,cdc-reset-gpio=%d\n", pTAS2557->mnResetGPIO);
+		}
 	}
 	
+	if(ret >=0){		
+		pTAS2557->mnGpioINT = of_get_named_gpio(np, "ti,irq-gpio", 0);
+		if (pTAS2557->mnGpioINT < 0) {
+			dev_err(pTAS2557->dev, "Looking up %s property in node %s failed %d\n",
+				"ti,irq-gpio", np->full_name,
+				pTAS2557->mnGpioINT);
+			ret = -1;
+		}else{
+			dev_dbg(pTAS2557->dev, "ti,irq-gpio=%d\n", pTAS2557->mnGpioINT);
+		}
+	}
+
 	if(ret >=0){
 		rc = of_property_read_u32(np, "ti,left-channel", &value);
 		if (rc) {

@@ -541,6 +541,59 @@ static int tas2557_dev_update_bits(
 	return nResult;
 }
 
+void tas2557_enableIRQ(struct tas2557_priv *pTAS2557, int enable)
+{
+	if(enable)
+		enable_irq(pTAS2557->mnIRQ);
+	else
+		disable_irq(pTAS2557->mnIRQ);
+}
+
+static void irq_work_routine(struct work_struct *work)
+{
+	int nResult = 0;
+	unsigned char nDev1IntStatus1, nDev1IntStatus2;
+	unsigned char nDev2IntStatus1, nDev2IntStatus2;
+	struct tas2557_priv *pTAS2557 = 
+		container_of(work, struct tas2557_priv, irq_work);
+
+	mutex_lock(&pTAS2557->dev_lock);	
+	
+	nResult = tas2557_change_book_page(pTAS2557, 
+				channel_both, 
+				TAS2557_BOOK_ID(TAS2557_FLAGS_1), 
+				TAS2557_PAGE_ID(TAS2557_FLAGS_1));
+	if(nResult < 0) goto program;
+		
+	tas2557_i2c_read_device(pTAS2557, 
+		pTAS2557->mnLAddr, TAS2557_PAGE_REG(TAS2557_FLAGS_1), &nDev1IntStatus1);
+	tas2557_i2c_read_device(pTAS2557, 
+		pTAS2557->mnLAddr, TAS2557_PAGE_REG(TAS2557_FLAGS_2), &nDev1IntStatus2);		
+	tas2557_i2c_read_device(pTAS2557, 
+		pTAS2557->mnRAddr, TAS2557_PAGE_REG(TAS2557_FLAGS_1), &nDev2IntStatus1);
+	tas2557_i2c_read_device(pTAS2557, 
+		pTAS2557->mnRAddr, TAS2557_PAGE_REG(TAS2557_FLAGS_2), &nDev2IntStatus2);			
+
+	//check IRQ status and take action accordingly
+	goto end;
+		
+program:
+	//as device doesn't acknowledge i2c addressing, need HW reset and reload
+	
+end:
+
+	mutex_unlock(&pTAS2557->dev_lock);		
+}
+
+static irqreturn_t tas2557_irq_handler(int irq, void *dev_id)
+{
+	struct tas2557_priv *pTAS2557 = (struct tas2557_priv *)dev_id;
+	
+	tas2557_enableIRQ(pTAS2557, 0);
+	schedule_work(&pTAS2557->irq_work);
+	return IRQ_HANDLED;
+}
+
 static bool tas2557_volatile(struct device *pDev, unsigned int nRegister)
 {
 	return true;
@@ -617,6 +670,7 @@ static int tas2557_i2c_probe(struct i2c_client *pClient,
 	pTAS2557->bulk_read = tas2557_dev_bulk_read;
 	pTAS2557->bulk_write = tas2557_dev_bulk_write;
 	pTAS2557->update_bits = tas2557_dev_update_bits;
+	pTAS2557->enableIRQ = tas2557_enableIRQ;
 	pTAS2557->set_config = tas2557_set_config;
 	pTAS2557->set_calibration = tas2557_set_calibration;
 
@@ -636,6 +690,33 @@ static int tas2557_i2c_probe(struct i2c_client *pClient,
 	tas2557_dev_read(pTAS2557, channel_right, TAS2557_REV_PGID_REG, &nValue);
 	pTAS2557->mnRPGID = nValue;
 	dev_info(&pClient->dev, "Right Chn, PGID=0x%x\n", nValue);	
+
+	if (gpio_is_valid(pTAS2557->mnGpioINT)){
+		nResult = gpio_request(pTAS2557->mnGpioINT, "TAS2557-IRQ");
+		if(nResult < 0){
+			dev_err(pTAS2557->dev, 
+				"%s: GPIO %d request INT error\n", 
+				__FUNCTION__, pTAS2557->mnGpioINT);					
+			goto err;
+		}
+		
+		tas2557_configIRQ(pTAS2557);  
+		INIT_WORK(&pTAS2557->irq_work, irq_work_routine);
+
+		gpio_direction_input(pTAS2557->mnGpioINT);
+		pTAS2557->mnIRQ = gpio_to_irq(pTAS2557->mnGpioINT);
+		dev_dbg(pTAS2557->dev, "irq = %d \n", pTAS2557->mnIRQ);
+		nResult = request_threaded_irq(pTAS2557->mnIRQ, tas2557_irq_handler,
+				NULL, IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+				pClient->name, pTAS2557);
+		if (nResult < 0) {
+			dev_err(pTAS2557->dev, 
+				"request_irq failed, %d\n", nResult);							
+			goto err;
+		}
+		
+		tas2557_enableIRQ(pTAS2557, 0);
+	}
 	
 	pTAS2557->mpFirmware = devm_kzalloc(&pClient->dev, sizeof(TFirmware), GFP_KERNEL);
 	if (!pTAS2557->mpFirmware){

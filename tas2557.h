@@ -152,6 +152,11 @@
 #define TAS2557_ASIM_IFACE8_REG			TAS2557_REG(0, 1, 105)
 #define TAS2557_ASIM_IFACE9_REG			TAS2557_REG(0, 1, 106)
 
+#define TAS2557_INT_GEN1_REG			TAS2557_REG(0, 1, 108)
+#define TAS2557_INT_GEN2_REG			TAS2557_REG(0, 1, 109)
+#define TAS2557_INT_GEN3_REG			TAS2557_REG(0, 1, 110)
+#define TAS2557_INT_GEN4_REG			TAS2557_REG(0, 1, 111)
+
 #define TAS2557_MAIN_CLKIN_REG			TAS2557_REG(0, 1, 115)
 #define TAS2557_PLL_CLKIN_REG			TAS2557_REG(0, 1, 116)
 #define TAS2557_CLKOUT_MUX_REG			TAS2557_REG(0, 1, 117)
@@ -415,7 +420,12 @@ struct tas2557_priv {
 		int config);
 	int (*set_calibration) (struct tas2557_priv *pTAS2557, 
 		int calibration);	
+	void (*enableIRQ)(struct tas2557_priv *pTAS2557, int enable);
 
+	int	mnGpioINT;
+	struct work_struct irq_work;
+	unsigned int mnIRQ;
+	
 #ifdef CONFIG_TAS2557_MISC_STEREO	
 	int mnDBGCmd;
 	int mnCurrentReg;	

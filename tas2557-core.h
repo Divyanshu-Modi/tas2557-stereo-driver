@@ -47,5 +47,6 @@ int tas2557_get_DAC_gain(struct tas2557_priv *pTAS2557,
 	enum channel chl, unsigned char *pnGain);
 int tas2557_set_DAC_gain(struct tas2557_priv *pTAS2557, 
 	enum channel chl, unsigned int nGain);
+void tas2557_configIRQ(struct tas2557_priv *pTAS2557);
 	
 #endif /* _TAS2557_CORE_H */
