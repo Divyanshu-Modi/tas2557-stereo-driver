@@ -578,7 +578,18 @@ static void irq_work_routine(struct work_struct *work)
 	goto end;
 		
 program:
-	//as device doesn't acknowledge i2c addressing, need HW reset and reload
+	//hardware reset and reload
+	if (gpio_is_valid(pTAS2557->mnResetGPIO)) {
+#ifdef HW_RESET	//mandatory		
+		devm_gpio_request_one(&pClient->dev, pTAS2557->mnResetGPIO,
+			GPIOF_OUT_INIT_LOW, "TAS2557_RST");
+		mdelay(5);
+		gpio_set_value_cansleep(pTAS2557->mnResetGPIO, 1);
+		mdelay(1);
+#endif		
+	}	
+	
+	tas2557_set_program(pTAS2557, pTAS2557->mnCurrentProgram);
 	
 end:
 
