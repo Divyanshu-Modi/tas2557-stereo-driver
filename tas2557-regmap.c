@@ -632,7 +632,7 @@ static int tas2557_i2c_probe(struct i2c_client *pClient,
 	const struct i2c_device_id *pID)
 {
 	struct tas2557_priv *pTAS2557;
-	int nResult;
+	int nResult = 0;
 	unsigned int nValue = 0;
 
 	dev_info(&pClient->dev, "%s enter\n", __FUNCTION__);
@@ -753,8 +753,7 @@ static int tas2557_i2c_probe(struct i2c_client *pClient,
 #endif
 
 #ifdef ENABLE_TILOAD
-	tiload_driver_init(pTAS2557, channel_left);
-	tiload_driver_init(pTAS2557, channel_right);
+	tiload_driver_init(pTAS2557);
 #endif
 
 	nResult = request_firmware_nowait(THIS_MODULE, 1, TAS2557_FW_NAME,

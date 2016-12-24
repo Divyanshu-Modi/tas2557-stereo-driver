@@ -28,8 +28,6 @@
 
 #include "tas2557.h"
 
-#define MAX_LENGTH 128
-
 #define BPR_REG(book, page, reg)		(((book * 256 * 128) + \
 						 (page * 128)) + reg)
 
@@ -42,28 +40,18 @@ typedef struct {
 	unsigned char nRegister;
 } BPR;
 
-struct tiload_data {
-	unsigned char mnBook;
-	unsigned char mnPage;
-	unsigned char mnMagicNum;
-	int mnTiload_Opened;
-	char mpRd_data[MAX_LENGTH + 1];
-	char mpWr_data[MAX_LENGTH + 1];
-} ;
-
 /* defines */
-#define CHL_DEVICE_NAME     "tiload_chl_node"
-#define CHR_DEVICE_NAME     "tiload_chr_node"
+#define DEVICE_NAME     "tiload_node"
 
 #define TILOAD_IOC_MAGIC   0xE0
 #define TILOAD_IOMAGICNUM_GET  			_IOR(TILOAD_IOC_MAGIC, 1, int)
 #define TILOAD_IOMAGICNUM_SET  			_IOW(TILOAD_IOC_MAGIC, 2, int)
 #define TILOAD_BPR_READ 				_IOR(TILOAD_IOC_MAGIC, 3, BPR)
 #define TILOAD_BPR_WRITE 				_IOW(TILOAD_IOC_MAGIC, 4, BPR)
-#define TILOAD_IOCHLNUM_SET  			_IOW(TILOAD_IOC_MAGIC, 5, int)
+#define TILOAD_IOCTL_SET_CHL  			_IOW(TILOAD_IOC_MAGIC, 5, int)
 #define TILOAD_IOCTL_SET_CONFIG 		_IOW(TILOAD_IOC_MAGIC, 6, int)
 #define TILOAD_IOCTL_SET_CALIBRATION 	_IOW(TILOAD_IOC_MAGIC, 7, int)
 
-int tiload_driver_init(struct tas2557_priv *pTAS2557, unsigned char channel);
+int tiload_driver_init(struct tas2557_priv *pTAS2557);
 
 #endif

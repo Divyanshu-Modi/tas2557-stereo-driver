@@ -432,9 +432,6 @@ struct tas2557_priv {
 	struct mutex file_lock;
 #endif	
 
-	//used for in-system tuning
-	void *chl_private_data;
-	void *chr_private_data;
 };
 
 #endif /* _TAS2557_H */
