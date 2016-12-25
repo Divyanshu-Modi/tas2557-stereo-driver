@@ -186,8 +186,8 @@ static int tas2557_i2c_update_bits(
 static int tas2557_change_book_page(
 	struct tas2557_priv *pTAS2557, 
 	enum channel chn,
-	int nBook,
-	int nPage)
+	unsigned char nBook,
+	unsigned char nPage)
 {
 	int nResult = 0;
 	
