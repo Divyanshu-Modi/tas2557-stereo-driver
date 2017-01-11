@@ -73,8 +73,6 @@ static void tas2557_load_configuration(struct tas2557_priv *pTAS2557,
 #define TAS2557_BLOCK_CFG_PRE_DEV_B		0x0b
 #define TAS2557_BLOCK_CFG_POST			0x05
 #define TAS2557_BLOCK_CFG_POST_POWER	0x06
-#define TAS2557_BLOCK_CFG_CAL_A			0x10
-#define TAS2557_BLOCK_CFG_CAL_B			0x20
 
 static unsigned int p_tas2557_irq_config[] =
 {
@@ -438,7 +436,7 @@ static int fw_parse_header(struct tas2557_priv *pTAS2557,
 
 	if(pFirmware->mnDevice != 3){
 		dev_err(pTAS2557->dev, 
-			"device %d, not TAS2557", pFirmware->mnDevice);
+			"device %d, not TAS2557 Dual Mono", pFirmware->mnDevice);
 		return -1;
 	}
 	
@@ -643,7 +641,7 @@ int fw_parse_calibration_data(struct tas2557_priv *pTAS2557,
 		pCalibration->mnConfiguration = pData[0];
 		pData++;
 
-		n = fw_parse_block_data(pTAS2557, &(pCalibration->mBlock), pData);
+		n = fw_parse_data(pTAS2557, &(pCalibration->mData), pData);
 		pData += n;
 	}
 
@@ -800,9 +798,10 @@ static void tas2557_load_data(struct tas2557_priv *pTAS2557, TData * pData,
 static void tas2557_load_configuration(struct tas2557_priv *pTAS2557,
 	unsigned int nConfiguration, bool bLoadSame)
 {
-	TConfiguration *pCurrentConfiguration;
-	TConfiguration *pNewConfiguration;
-	TPLL *pNewPLL;
+	TConfiguration *pCurrentConfiguration = NULL;
+	TConfiguration *pNewConfiguration = NULL;
+	TCalibration *pCalibration = NULL;
+	TPLL *pNewPLL = NULL;
 
 	dev_dbg(pTAS2557->dev, "tas2557_load_configuration: %d\n", nConfiguration);
 
@@ -828,7 +827,7 @@ static void tas2557_load_configuration(struct tas2557_priv *pTAS2557,
 		&(pTAS2557->mpFirmware->mpConfigurations[pTAS2557->mnCurrentConfiguration]);
 	pNewConfiguration =
 		&(pTAS2557->mpFirmware->mpConfigurations[nConfiguration]);
-
+		
 	if (pNewConfiguration->mnProgram != pCurrentConfiguration->mnProgram) {
 		dev_err(pTAS2557->dev,
 			"Configuration %d, %s doesn't share the same program as current %d\n",
@@ -844,6 +843,9 @@ static void tas2557_load_configuration(struct tas2557_priv *pTAS2557,
 	}
 	
 	pNewPLL = &(pTAS2557->mpFirmware->mpPLLs[pNewConfiguration->mnPLL]);
+	if(pTAS2557->mpCalFirmware->mnCalibrations){
+		pCalibration = &(pTAS2557->mpCalFirmware->mpCalibrations[pTAS2557->mnCurrentCalibration]);
+	}
 
 	if (pTAS2557->mbPowerUp) {
 		if (pNewConfiguration->mnPLL != pCurrentConfiguration->mnPLL) {
@@ -866,9 +868,18 @@ static void tas2557_load_configuration(struct tas2557_priv *pTAS2557,
 				"TAS2557: load new configuration: %s, coeff block data\n",
 				pNewConfiguration->mpName);
 			tas2557_load_data(pTAS2557, &(pNewConfiguration->mData),
-				TAS2557_BLOCK_CFG_COEFF_DEV_A);
+				TAS2557_BLOCK_CFG_COEFF_DEV_A);					
 			tas2557_load_data(pTAS2557, &(pNewConfiguration->mData),
-				TAS2557_BLOCK_CFG_COEFF_DEV_B);				
+				TAS2557_BLOCK_CFG_COEFF_DEV_B);	
+				
+			if (pTAS2557->mpCalFirmware->mnCalibrations) {
+				dev_dbg(pTAS2557->dev, "Enable: load calibration\n");
+				tas2557_load_data(pTAS2557, &(pCalibration->mData), 
+					TAS2557_BLOCK_CFG_COEFF_DEV_A);
+				tas2557_load_data(pTAS2557, &(pCalibration->mData), 
+					TAS2557_BLOCK_CFG_COEFF_DEV_B);
+			}	
+			
 			dev_dbg(pTAS2557->dev, "TAS2557: power up TAS2557\n");
 			tas2557_dev_load_data(pTAS2557, p_tas2557_startup_data);
 			dev_dbg(pTAS2557->dev, "TAS2557: unmute TAS2557\n");
@@ -881,7 +892,15 @@ static void tas2557_load_configuration(struct tas2557_priv *pTAS2557,
 			tas2557_load_data(pTAS2557, &(pNewConfiguration->mData),
 				TAS2557_BLOCK_CFG_COEFF_DEV_A);	
 			tas2557_load_data(pTAS2557, &(pNewConfiguration->mData),
-				TAS2557_BLOCK_CFG_COEFF_DEV_B);					
+				TAS2557_BLOCK_CFG_COEFF_DEV_B);		
+
+			if (pTAS2557->mpCalFirmware->mnCalibrations) {
+				dev_dbg(pTAS2557->dev, "Enable: load calibration\n");
+				tas2557_load_data(pTAS2557, &(pCalibration->mData), 
+					TAS2557_BLOCK_CFG_COEFF_DEV_A);
+				tas2557_load_data(pTAS2557, &(pCalibration->mData), 
+					TAS2557_BLOCK_CFG_COEFF_DEV_B);
+			}					
 		}
 				
 		pTAS2557->mbLoadConfigurationPostPowerUp = false;
@@ -908,7 +927,15 @@ static void tas2557_load_configuration(struct tas2557_priv *pTAS2557,
 		tas2557_load_data(pTAS2557, &(pNewConfiguration->mData),
 				TAS2557_BLOCK_CFG_COEFF_DEV_A);	
 		tas2557_load_data(pTAS2557, &(pNewConfiguration->mData),
-				TAS2557_BLOCK_CFG_COEFF_DEV_B);			
+				TAS2557_BLOCK_CFG_COEFF_DEV_B);		
+
+		if (pTAS2557->mpCalFirmware->mnCalibrations) {
+			dev_dbg(pTAS2557->dev, "Enable: load calibration\n");
+			tas2557_load_data(pTAS2557, &(pCalibration->mData), 
+				TAS2557_BLOCK_CFG_COEFF_DEV_A);
+			tas2557_load_data(pTAS2557, &(pCalibration->mData), 
+				TAS2557_BLOCK_CFG_COEFF_DEV_B);
+		}					
 		pTAS2557->mbLoadConfigurationPostPowerUp = true;
 	}
 
@@ -956,40 +983,52 @@ void tas2557_clear_firmware(TFirmware *pFirmware)
 	if (!pFirmware) return;
 	if (pFirmware->mpDescription) kfree(pFirmware->mpDescription);	
 
-	for (n = 0; n < pFirmware->mnPLLs; n++)
-	{
-		kfree(pFirmware->mpPLLs[n].mpDescription);
-		kfree(pFirmware->mpPLLs[n].mBlock.mpData);
+	if(pFirmware->mpPLLs != NULL){	
+		for (n = 0; n < pFirmware->mnPLLs; n++)
+		{
+			kfree(pFirmware->mpPLLs[n].mpDescription);
+			kfree(pFirmware->mpPLLs[n].mBlock.mpData);
+		}
+		kfree(pFirmware->mpPLLs);
 	}
-	kfree(pFirmware->mpPLLs);
-
-	for (n = 0; n < pFirmware->mnPrograms; n++)
-	{
-		kfree(pFirmware->mpPrograms[n].mpDescription);
-		kfree(pFirmware->mpPrograms[n].mData.mpDescription);
-		for (nn = 0; nn < pFirmware->mpPrograms[n].mData.mnBlocks; nn++)
-			kfree(pFirmware->mpPrograms[n].mData.mpBlocks[nn].mpData);
-		kfree(pFirmware->mpPrograms[n].mData.mpBlocks);
+	
+	if(pFirmware->mpPrograms != NULL){	
+		for (n = 0; n < pFirmware->mnPrograms; n++)
+		{
+			kfree(pFirmware->mpPrograms[n].mpDescription);
+			kfree(pFirmware->mpPrograms[n].mData.mpDescription);
+			for (nn = 0; nn < pFirmware->mpPrograms[n].mData.mnBlocks; nn++)
+				kfree(pFirmware->mpPrograms[n].mData.mpBlocks[nn].mpData);
+			kfree(pFirmware->mpPrograms[n].mData.mpBlocks);
+		}
+		kfree(pFirmware->mpPrograms);
 	}
-	kfree(pFirmware->mpPrograms);
 
-	for (n = 0; n < pFirmware->mnConfigurations; n++)
-	{
-		kfree(pFirmware->mpConfigurations[n].mpDescription);
-		kfree(pFirmware->mpConfigurations[n].mData.mpDescription);
-		for (nn = 0; nn < pFirmware->mpConfigurations[n].mData.mnBlocks; nn++)
-			kfree(pFirmware->mpConfigurations[n].mData.mpBlocks[nn].mpData);
-		kfree(pFirmware->mpConfigurations[n].mData.mpBlocks);
+	if(pFirmware->mpConfigurations != NULL){	
+		for (n = 0; n < pFirmware->mnConfigurations; n++)
+		{
+			kfree(pFirmware->mpConfigurations[n].mpDescription);
+			kfree(pFirmware->mpConfigurations[n].mData.mpDescription);
+			for (nn = 0; nn < pFirmware->mpConfigurations[n].mData.mnBlocks; nn++)
+				kfree(pFirmware->mpConfigurations[n].mData.mpBlocks[nn].mpData);
+			kfree(pFirmware->mpConfigurations[n].mData.mpBlocks);
+		}
+		kfree(pFirmware->mpConfigurations);
 	}
-	kfree(pFirmware->mpConfigurations);
 
-	for (n = 0; n < pFirmware->mnCalibrations; n++)
-	{
-		kfree(pFirmware->mpCalibrations[n].mpDescription);
-		kfree(pFirmware->mpCalibrations[n].mBlock.mpData);
+	if(pFirmware->mpCalibrations != NULL){
+		for (n = 0; n < pFirmware->mnCalibrations; n++)
+		{
+			kfree(pFirmware->mpCalibrations[n].mpDescription);
+			kfree(pFirmware->mpCalibrations[n].mData.mpDescription);
+			for (nn = 0; nn < pFirmware->mpCalibrations[n].mData.mnBlocks; nn++)
+				kfree(pFirmware->mpCalibrations[n].mData.mpBlocks[nn].mpData);
+			kfree(pFirmware->mpCalibrations[n].mData.mpBlocks);
+		}
+		
+		kfree(pFirmware->mpCalibrations);
 	}
-	kfree(pFirmware->mpCalibrations);
-
+	
 	memset(pFirmware, 0x00, sizeof(TFirmware));
 }
 
@@ -1208,6 +1247,8 @@ int tas2557_set_program(struct tas2557_priv *pTAS2557,
 int tas2557_set_calibration(struct tas2557_priv *pTAS2557,
 	int nCalibration)
 {
+	TCalibration *pCalibration = NULL;
+	
 	if ((!pTAS2557->mpFirmware->mpPrograms) || (!pTAS2557->mpFirmware->mpConfigurations)) 
 	{
 		dev_err(pTAS2557->dev, "Firmware not loaded\n\r");
@@ -1221,21 +1262,21 @@ int tas2557_set_calibration(struct tas2557_priv *pTAS2557,
 		nCalibration = 0;
 	}
 
-	if (nCalibration >= pTAS2557->mpFirmware->mnCalibrations) {
+	if (nCalibration >= pTAS2557->mpCalFirmware->mnCalibrations) {
 		dev_err(pTAS2557->dev,
 			"Calibration %d doesn't exist\n", nCalibration);
 		return -1;
 	}
 
 	pTAS2557->mnCurrentCalibration = nCalibration;
-	if(pTAS2557->mbPowerUp){
-		tas2557_load_block(pTAS2557, 
-			&(pTAS2557->mpCalFirmware->mpCalibrations[pTAS2557->mnCurrentCalibration].mBlock));
-		pTAS2557->mbLoadCalibrationPostPowerUp = false; 
-	}else{
-		pTAS2557->mbLoadCalibrationPostPowerUp = true; 
-	}
-
+	pCalibration = &(pTAS2557->mpCalFirmware->mpCalibrations[nCalibration]);
+	
+	dev_dbg(pTAS2557->dev, "Enable: load calibration\n");
+	tas2557_load_data(pTAS2557, &(pCalibration->mData), 
+		TAS2557_BLOCK_CFG_COEFF_DEV_A);
+	tas2557_load_data(pTAS2557, &(pCalibration->mData), 
+		TAS2557_BLOCK_CFG_COEFF_DEV_B);
+		
 	return 0;
 }
 

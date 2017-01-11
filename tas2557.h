@@ -331,7 +331,7 @@ typedef struct
 	char *mpDescription;
 	unsigned int mnProgram;
 	unsigned int mnConfiguration;
-	TBlock mBlock;
+	TData mData;
 } TCalibration;
 
 typedef struct {
