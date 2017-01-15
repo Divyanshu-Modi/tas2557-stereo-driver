@@ -3,16 +3,12 @@
 ** Copyright (c) 2016  Texas Instruments Inc.
 **
 ** This program is free software; you can redistribute it and/or modify it under
-** the terms of the GNU General Public License as published by the Free Software 
+** the terms of the GNU General Public License as published by the Free Software
 ** Foundation; version 2.
 **
 ** This program is distributed in the hope that it will be useful, but WITHOUT
 ** ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 ** FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-**
-** You should have received a copy of the GNU General Public License along with
-** this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
-** Street, Fifth Floor, Boston, MA 02110-1301, USA.
 **
 ** File:
 **     tas2557.h
@@ -179,8 +175,6 @@
 #define TAS2557_BROADCAST_REG			TAS2557_REG(0, 253, 54)
 #define TAS2557_CRYPTIC_REG			TAS2557_REG(0, 253, 71)
 
-//#define TAS2557__REG      TAS2557_REG(0, 1, )
-//#define TAS2557__REG      TAS2557_REG(1, 0, )
 #define TAS2557_DAC_INTERPOL_REG		TAS2557_REG(100, 0, 1)
 #define TAS2557_SOFT_MUTE_REG			TAS2557_REG(100, 0, 7)
 #define TAS2557_PLL_P_VAL_REG			TAS2557_REG(100, 0, 27)
@@ -275,7 +269,7 @@
 #define TAS2557_PLL_P_VAL_MASK			(0x3f << 0)
 
 /* B100P0R28 - TAS2557_PLL_J_VAL_REG */
-#define TAS2557_PLL_J_VAL_MASK			((unsigned int ) (0x7f << 0))
+#define TAS2557_PLL_J_VAL_MASK			((unsigned int) (0x7f << 0))
 #define TAS2557_PLL_J_VAL_MASKX	0x00
 
 /* B100P0R29-30 - TAS2557_PLL_D_VAL_MSB/LSB_REG */
@@ -289,52 +283,51 @@
 
 #define TAS2557_BROADCAST_ADDR	0x4c
 
-typedef struct {
+struct TBlock {
 	unsigned int mnType;
 	unsigned int mnCommands;
 	unsigned char *mpData;
-} TBlock;
+};
 
-typedef struct {
+struct TData {
 	char mpName[64];
 	char *mpDescription;
 	unsigned int mnBlocks;
-	TBlock *mpBlocks;
-} TData;
+	struct TBlock *mpBlocks;
+};
 
-typedef struct {
+struct TProgram {
 	char mpName[64];
 	char *mpDescription;
 	unsigned char mnAppMode;
 	unsigned short mnBoost;
-	TData mData;
-} TProgram;
+	struct TData mData;
+};
 
-typedef struct {
+struct TPLL {
 	char mpName[64];
 	char *mpDescription;
-	TBlock mBlock;
-} TPLL;
+	struct TBlock mBlock;
+};
 
-typedef struct {
+struct TConfiguration {
 	char mpName[64];
 	char *mpDescription;
 	unsigned int mnProgram;
 	unsigned int mnPLL;
 	unsigned int mnSamplingRate;
-	TData mData;
-} TConfiguration;
+	struct TData mData;
+};
 
-typedef struct
-{
+struct TCalibration {
 	char mpName[64];
 	char *mpDescription;
 	unsigned int mnProgram;
 	unsigned int mnConfiguration;
-	TData mData;
-} TCalibration;
+	struct TData mData;
+};
 
-typedef struct {
+struct TFirmware {
 	unsigned int mnFWSize;
 	unsigned int mnChecksum;
 	unsigned int mnPPCVersion;
@@ -346,14 +339,14 @@ typedef struct {
 	unsigned int mnDeviceFamily;
 	unsigned int mnDevice;
 	unsigned int mnPLLs;
-	TPLL *mpPLLs;
+	struct TPLL *mpPLLs;
 	unsigned int mnPrograms;
-	TProgram *mpPrograms;
+	struct TProgram *mpPrograms;
 	unsigned int mnConfigurations;
-	TConfiguration *mpConfigurations;
+	struct TConfiguration *mpConfigurations;
 	unsigned int mnCalibrations;
-	TCalibration *mpCalibrations;
-} TFirmware;
+	struct TCalibration *mpCalibrations;
+};
 
 struct tas2557_register {
 	int book;
@@ -361,24 +354,24 @@ struct tas2557_register {
 	int reg;
 };
 
-enum channel{
+enum channel {
 	channel_left = 0x01,
 	channel_right = 0x02,
 	channel_both = (channel_left|channel_right),
 	channel_broadcast = 0x4,
-} ;
+};
 
 struct tas2557_priv {
 	struct device *dev;
 	struct regmap *mpRegmap;
-	struct i2c_client *client;	
+	struct i2c_client *client;
 	int mnLoad;
 	int mnLPGID;
 	int mnRPGID;
 	int mnResetGPIO;
-	struct mutex dev_lock;	
-	TFirmware *mpFirmware;
-	TFirmware *mpCalFirmware;
+	struct mutex dev_lock;
+	struct TFirmware *mpFirmware;
+	struct TFirmware *mpCalFirmware;
 	unsigned int mnCurrentProgram;
 	unsigned int mnCurrentSampleRate;
 	unsigned int mnCurrentConfiguration;
@@ -389,50 +382,50 @@ struct tas2557_priv {
 	unsigned char mnLCurrentBook;
 	unsigned char mnLCurrentPage;
 	unsigned char mnRCurrentBook;
-	unsigned char mnRCurrentPage;	
+	unsigned char mnRCurrentPage;
 	bool mbTILoadActive;
 	bool mbPowerUp;
 	bool mbLoadConfigurationPostPowerUp;
 	bool mbLoadCalibrationPostPowerUp;
 	bool mbCalibrationLoaded;
-	int (*read) (struct tas2557_priv * pTAS2557, 
+	int (*read)(struct tas2557_priv *pTAS2557,
 		enum channel chn,
 		unsigned int reg,
 		unsigned int *pValue);
-	int (*write) (struct tas2557_priv * pTAS2557, 
+	int (*write)(struct tas2557_priv *pTAS2557,
 		enum channel chn,
 		unsigned int reg,
 		unsigned int Value);
-	int (*bulk_read) (struct tas2557_priv * pTAS2557, 
+	int (*bulk_read)(struct tas2557_priv *pTAS2557,
 		enum channel chn,
 		unsigned int reg,
-		unsigned char *pData, 
+		unsigned char *pData,
 		unsigned int len);
-	int (*bulk_write) (struct tas2557_priv * pTAS2557, 
+	int (*bulk_write)(struct tas2557_priv *pTAS2557,
 		enum channel chn,
 		unsigned int reg,
-		unsigned char *pData, 
+		unsigned char *pData,
 		unsigned int len);
-	int (*update_bits) (struct tas2557_priv * pTAS2557, 
+	int (*update_bits)(struct tas2557_priv *pTAS2557,
 		enum channel chn,
 		unsigned int reg,
-		unsigned int mask, 
+		unsigned int mask,
 		unsigned int value);
-	int (*set_config) (struct tas2557_priv *pTAS2557, 
+	int (*set_config)(struct tas2557_priv *pTAS2557,
 		int config);
-	int (*set_calibration) (struct tas2557_priv *pTAS2557, 
-		int calibration);	
+	int (*set_calibration)(struct tas2557_priv *pTAS2557,
+		int calibration);
 	void (*enableIRQ)(struct tas2557_priv *pTAS2557, int enable);
 
 	int	mnGpioINT;
 	struct work_struct irq_work;
 	unsigned int mnIRQ;
-	
-#ifdef CONFIG_TAS2557_MISC_STEREO	
+
+#ifdef CONFIG_TAS2557_MISC_STEREO
 	int mnDBGCmd;
-	int mnCurrentReg;	
+	int mnCurrentReg;
 	struct mutex file_lock;
-#endif	
+#endif
 
 };
 
