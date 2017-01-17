@@ -392,7 +392,7 @@ static ssize_t tas2557_file_write(struct file *file, const char *buf, size_t cou
 				dev_info(pTAS2557->dev,
 				"TIAUDIO_CMD_PROGRAM, set to %d\n",
 				p_kBuf[1]);
-			tas2557_set_program(pTAS2557, p_kBuf[1]);
+			tas2557_set_program(pTAS2557, p_kBuf[1], -1);
 			pTAS2557->mnDBGCmd = 0;
 		}
 	}
@@ -537,7 +537,7 @@ static long tas2557_file_unlocked_ioctl(struct file *file, unsigned int cmd, uns
 
 	case SMARTPA_SPK_SWITCH_PROGRAM:
 	{
-		tas2557_set_program(pTAS2557, arg);
+		tas2557_set_program(pTAS2557, arg, -1);
 	}
 	break;
 

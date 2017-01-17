@@ -532,31 +532,34 @@ void tas2557_enableIRQ(struct tas2557_priv *pTAS2557, int enable)
 static void irq_work_routine(struct work_struct *work)
 {
 	int nResult = 0;
-	unsigned char nDev1IntStatus1, nDev1IntStatus2;
-	unsigned char nDev2IntStatus1, nDev2IntStatus2;
+	unsigned int nDevIntStatus;
 	struct tas2557_priv *pTAS2557 =
 		container_of(work, struct tas2557_priv, irq_work);
 
-	mutex_lock(&pTAS2557->dev_lock);
+	if (!pTAS2557->mbPowerUp)
+		return;
 
-	nResult = tas2557_change_book_page(pTAS2557,
-				channel_both,
-				TAS2557_BOOK_ID(TAS2557_FLAGS_1),
-				TAS2557_PAGE_ID(TAS2557_FLAGS_1));
-	if (nResult < 0)
+	nResult = tas2557_dev_read(pTAS2557, channel_left, TAS2557_FLAGS_1, &nDevIntStatus);
+	if (nResult < 0) {
+		dev_err(pTAS2557->dev, "left channel I2C doesn't work\n");
 		goto program;
+	} else if ((nDevIntStatus && 0xdc) != 0) {
+		/* in case of INT_OC, INT_UV, INT_OT, INT_BO, INT_CL */
+		dev_err(pTAS2557->dev, "left channel critical error 0x%x\n", nDevIntStatus);
+		goto program;
+	}
 
-	tas2557_i2c_read_device(pTAS2557,
-		pTAS2557->mnLAddr, TAS2557_PAGE_REG(TAS2557_FLAGS_1), &nDev1IntStatus1);
-	tas2557_i2c_read_device(pTAS2557,
-		pTAS2557->mnLAddr, TAS2557_PAGE_REG(TAS2557_FLAGS_2), &nDev1IntStatus2);
-	tas2557_i2c_read_device(pTAS2557,
-		pTAS2557->mnRAddr, TAS2557_PAGE_REG(TAS2557_FLAGS_1), &nDev2IntStatus1);
-	tas2557_i2c_read_device(pTAS2557,
-		pTAS2557->mnRAddr, TAS2557_PAGE_REG(TAS2557_FLAGS_2), &nDev2IntStatus2);
+	nResult = tas2557_dev_read(pTAS2557, channel_right, TAS2557_FLAGS_1, &nDevIntStatus);
+	if (nResult < 0) {
+		dev_err(pTAS2557->dev, "right channel I2C doesn't work\n");
+		goto program;
+	} else if ((nDevIntStatus && 0xdc) != 0) {
+		/* in case of INT_OC, INT_UV, INT_OT, INT_BO, INT_CL */
+		dev_err(pTAS2557->dev, "right channel critical error 0x%x\n", nDevIntStatus);
+		goto program;
+	}
 
-	/* check IRQ status and take action accordingly */
-	goto end;
+	return;
 
 program:
 	/* hardware reset and reload */
@@ -570,11 +573,7 @@ program:
 #endif
 	}
 
-	tas2557_set_program(pTAS2557, pTAS2557->mnCurrentProgram);
-
-end:
-
-	mutex_unlock(&pTAS2557->dev_lock);
+	tas2557_set_program(pTAS2557, pTAS2557->mnCurrentProgram, pTAS2557->mnCurrentConfiguration);
 }
 
 static irqreturn_t tas2557_irq_handler(int irq, void *dev_id)

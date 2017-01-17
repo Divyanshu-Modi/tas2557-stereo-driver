@@ -297,7 +297,7 @@ static int tas2557_program_put(struct snd_kcontrol *pKcontrol,
 	unsigned int nProgram = pValue->value.integer.value[0];
 	int ret = 0;
 
-	ret = tas2557_set_program(pTAS2557, nProgram);
+	ret = tas2557_set_program(pTAS2557, nProgram, -1);
 	return ret;
 }
 
@@ -543,5 +543,5 @@ int tas2557_deregister_codec(struct tas2557_priv *pTAS2557)
 
 MODULE_AUTHOR("Texas Instruments Inc.");
 MODULE_DESCRIPTION("TAS2557 ALSA SOC Smart Amplifier Stereo driver");
-MODULE_LICENSE("GPLv2");
+MODULE_LICENSE("GPL v2");
 #endif

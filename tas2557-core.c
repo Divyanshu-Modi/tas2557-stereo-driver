@@ -1002,10 +1002,10 @@ void tas2557_fw_ready(const struct firmware *pFW, void *pContext)
 	}
 	pTAS2557->mnCurrentSampleRate = nSampleRate;
 
-	tas2557_set_program(pTAS2557, nProgram);
+	tas2557_set_program(pTAS2557, nProgram, -1);
 }
 
-int tas2557_set_program(struct tas2557_priv *pTAS2557, unsigned int nProgram)
+int tas2557_set_program(struct tas2557_priv *pTAS2557, unsigned int nProgram, int nConfig)
 {
 	struct TPLL *pPLL;
 	struct TConfiguration *pConfiguration;
@@ -1022,32 +1022,37 @@ int tas2557_set_program(struct tas2557_priv *pTAS2557, unsigned int nProgram)
 	}
 	if (nProgram >= pTAS2557->mpFirmware->mnPrograms) {
 		dev_err(pTAS2557->dev, "TAS2557: Program %d doesn't exist\n",
-			nConfiguration);
+			nProgram);
 		return -EINVAL;
 	}
-	nConfiguration = 0;
-	nSampleRate = pTAS2557->mnCurrentSampleRate;
-	while (!bFound && (nConfiguration < pTAS2557->mpFirmware->mnConfigurations)) {
-		if (pTAS2557->mpFirmware->mpConfigurations[nConfiguration].mnProgram == nProgram) {
-			if (nSampleRate == 0) {
-				bFound = true;
-				dev_info(pTAS2557->dev, "find default configuration %d\n", nConfiguration);
-			} else if (nSampleRate == pTAS2557->mpFirmware->mpConfigurations[nConfiguration].mnSamplingRate) {
-				bFound = true;
-				dev_info(pTAS2557->dev, "find matching configuration %d\n", nConfiguration);
+
+	if (nConfig < 0) {
+		nConfiguration = 0;
+		nSampleRate = pTAS2557->mnCurrentSampleRate;
+		while (!bFound && (nConfiguration < pTAS2557->mpFirmware->mnConfigurations)) {
+			if (pTAS2557->mpFirmware->mpConfigurations[nConfiguration].mnProgram == nProgram) {
+				if (nSampleRate == 0) {
+					bFound = true;
+					dev_info(pTAS2557->dev, "find default configuration %d\n", nConfiguration);
+				} else if (nSampleRate == pTAS2557->mpFirmware->mpConfigurations[nConfiguration].mnSamplingRate) {
+					bFound = true;
+					dev_info(pTAS2557->dev, "find matching configuration %d\n", nConfiguration);
+				} else {
+					nConfiguration++;
+				}
 			} else {
 				nConfiguration++;
 			}
-		} else {
-			nConfiguration++;
 		}
-	}
-	if (!bFound) {
-		dev_err(pTAS2557->dev,
-			"Program %d, no valid configuration found for sample rate %d, ignore\n",
-			nProgram, nSampleRate);
-		return -EINVAL;
-	}
+		if (!bFound) {
+			dev_err(pTAS2557->dev,
+				"Program %d, no valid configuration found for sample rate %d, ignore\n",
+				nProgram, nSampleRate);
+			return -EINVAL;
+		}
+	} else
+		nConfiguration = nConfig;
+
 	pTAS2557->mnCurrentProgram = nProgram;
 	if (pTAS2557->mbPowerUp) {
 		nResult = tas2557_dev_load_data(pTAS2557, p_tas2557_mute_DSP_down_data);
@@ -1193,4 +1198,4 @@ int tas2557_parse_dt(struct device *dev, struct tas2557_priv *pTAS2557)
 
 MODULE_AUTHOR("Texas Instruments Inc.");
 MODULE_DESCRIPTION("TAS2557 common functions for Android Linux");
-MODULE_LICENSE("GPLv2");
+MODULE_LICENSE("GPL v2");
