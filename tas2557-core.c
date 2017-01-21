@@ -178,14 +178,16 @@ void tas2557_enable(struct tas2557_priv *pTAS2557, bool bEnable)
 			tas2557_dev_load_data(pTAS2557, p_tas2557_startup_data);
 			dev_dbg(pTAS2557->dev, "Enable: load unmute sequence\n");
 			tas2557_dev_load_data(pTAS2557, p_tas2557_unmute_data);
-			pTAS2557->enableIRQ(pTAS2557, 1);
+			/* turn on IRQ */
+			pTAS2557->enableIRQ(pTAS2557, true, false);
 			pTAS2557->mbPowerUp = true;
 		}
 	} else {
 		if (pTAS2557->mbPowerUp) {
 			dev_dbg(pTAS2557->dev, "Enable: load shutdown sequence\n");
+			/* turn off IRQ */
+			pTAS2557->enableIRQ(pTAS2557, false, true);
 			tas2557_dev_load_data(pTAS2557, p_tas2557_shutdown_data);
-			pTAS2557->enableIRQ(pTAS2557, 0);
 			 /* tas2557_dev_load_data(pTAS2557, p_tas2557_shutdown_clk_err); */
 			pTAS2557->mbPowerUp = false;
 		}
@@ -743,11 +745,11 @@ static void tas2557_load_configuration(struct tas2557_priv *pTAS2557,
 
 	if (pTAS2557->mbPowerUp) {
 		if (pNewConfiguration->mnPLL != pCurrentConfiguration->mnPLL) {
+			pTAS2557->enableIRQ(pTAS2557, false, true);
 			dev_dbg(pTAS2557->dev,
 				"TAS2557 is powered up, power down DSP before loading new configuration\n");
 			tas2557_dev_load_data(pTAS2557, p_tas2557_shutdown_data);
 			dev_dbg(pTAS2557->dev, "TAS2557: load new PLL: %s, block data\n", pNewPLL->mpName);
-			pTAS2557->enableIRQ(pTAS2557, 0);
 			tas2557_load_block(pTAS2557, &(pNewPLL->mBlock));
 			pTAS2557->mnCurrentSampleRate = pNewConfiguration->mnSamplingRate;
 			dev_dbg(pTAS2557->dev, "load new configuration: %s, pre block data\n",
@@ -773,7 +775,7 @@ static void tas2557_load_configuration(struct tas2557_priv *pTAS2557,
 			tas2557_dev_load_data(pTAS2557, p_tas2557_startup_data);
 			dev_dbg(pTAS2557->dev, "TAS2557: unmute TAS2557\n");
 			tas2557_dev_load_data(pTAS2557, p_tas2557_unmute_data);
-			pTAS2557->enableIRQ(pTAS2557, 1);
+			pTAS2557->enableIRQ(pTAS2557, true, false);
 		} else {
 			dev_dbg(pTAS2557->dev,
 				"TAS2557 is powered up, no change in PLL: load new configuration: %s, coeff block data\n",
@@ -1055,11 +1057,12 @@ int tas2557_set_program(struct tas2557_priv *pTAS2557, unsigned int nProgram, in
 
 	pTAS2557->mnCurrentProgram = nProgram;
 	if (pTAS2557->mbPowerUp) {
+		pTAS2557->enableIRQ(pTAS2557, false, true);
 		nResult = tas2557_dev_load_data(pTAS2557, p_tas2557_mute_DSP_down_data);
-		pTAS2557->enableIRQ(pTAS2557, 0);
 	}
+
 	pTAS2557->write(pTAS2557, channel_both, TAS2557_SW_RESET_REG, 0x01);
-	udelay(1000);
+	msleep(1);
 	nResult = tas2557_load_default(pTAS2557);
 	dev_info(pTAS2557->dev, "load program %d\n", nProgram);
 	tas2557_load_data(pTAS2557,
@@ -1099,7 +1102,7 @@ int tas2557_set_program(struct tas2557_priv *pTAS2557, unsigned int nProgram, in
 		dev_dbg(pTAS2557->dev,
 			"device powered up, load unmute\n");
 		tas2557_dev_load_data(pTAS2557, p_tas2557_unmute_data);
-		pTAS2557->enableIRQ(pTAS2557, 1);
+		pTAS2557->enableIRQ(pTAS2557, true, false);
 	}
 	return 0;
 }
@@ -1159,15 +1162,28 @@ int tas2557_parse_dt(struct device *dev, struct tas2557_priv *pTAS2557)
 			dev_dbg(pTAS2557->dev, "ti,cdc-reset-gpio=%d\n", pTAS2557->mnResetGPIO);
 		}
 	}
+
 	if (ret >= 0) {
-		pTAS2557->mnGpioINT = of_get_named_gpio(np, "ti,irq-gpio", 0);
-		if (pTAS2557->mnGpioINT < 0) {
+		pTAS2557->mnLeftChlGpioINT = of_get_named_gpio(np, "ti,irq-gpio-left", 0);
+		if (pTAS2557->mnLeftChlGpioINT < 0) {
 			dev_err(pTAS2557->dev, "Looking up %s property in node %s failed %d\n",
-				"ti,irq-gpio", np->full_name,
-				pTAS2557->mnGpioINT);
+				"ti,irq-gpio-left", np->full_name,
+				pTAS2557->mnLeftChlGpioINT);
 			ret = -1;
 		} else {
-			dev_dbg(pTAS2557->dev, "ti,irq-gpio=%d\n", pTAS2557->mnGpioINT);
+			dev_dbg(pTAS2557->dev, "ti,irq-gpio-left=%d\n", pTAS2557->mnLeftChlGpioINT);
+		}
+	}
+
+	if (ret >= 0) {
+		pTAS2557->mnRightChlGpioINT = of_get_named_gpio(np, "ti,irq-gpio-right", 0);
+		if (pTAS2557->mnRightChlGpioINT < 0) {
+			dev_err(pTAS2557->dev, "Looking up %s property in node %s failed %d\n",
+				"ti,irq-gpio-right", np->full_name,
+				pTAS2557->mnRightChlGpioINT);
+			ret = -1;
+		} else {
+			dev_dbg(pTAS2557->dev, "ti,irq-gpio-right=%d\n", pTAS2557->mnRightChlGpioINT);
 		}
 	}
 

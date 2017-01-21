@@ -79,8 +79,8 @@
 #define TAS2557_CLK_ERR_CTRL			TAS2557_REG(0, 0, 44)
 #define TAS2557_DBOOST_CFG_REG			TAS2557_REG(0, 0, 52)
 #define TAS2557_POWER_UP_FLAG_REG		TAS2557_REG(0, 0, 100)
-#define TAS2557_FLAGS_1				TAS2557_REG(0, 0, 104)
-#define TAS2557_FLAGS_2				TAS2557_REG(0, 0, 108)
+#define TAS2557_FLAGS_1				TAS2557_REG(0, 0, 104)	/* B0_P0_R0x68*/
+#define TAS2557_FLAGS_2				TAS2557_REG(0, 0, 108)	/* B0_P0_R0x6c*/
 /* Book0, Page1 registers */
 #define TAS2557_ASI1_DAC_FORMAT_REG		TAS2557_REG(0, 1, 1)
 #define TAS2557_ASI1_ADC_FORMAT_REG		TAS2557_REG(0, 1, 2)
@@ -115,7 +115,7 @@
 #define TAS2557_GPIO1_PIN_REG			TAS2557_REG(0, 1, 61)
 #define TAS2557_GPIO2_PIN_REG			TAS2557_REG(0, 1, 62)
 #define TAS2557_GPIO3_PIN_REG			TAS2557_REG(0, 1, 63)
-#define TAS2557_GPIO4_PIN_REG			TAS2557_REG(0, 1, 64)
+#define TAS2557_GPIO4_PIN_REG			TAS2557_REG(0, 1, 64)	/*B0_P1_R0x40 */
 #define TAS2557_GPIO5_PIN_REG			TAS2557_REG(0, 1, 65)
 #define TAS2557_GPIO6_PIN_REG			TAS2557_REG(0, 1, 66)
 #define TAS2557_GPIO7_PIN_REG			TAS2557_REG(0, 1, 67)
@@ -150,9 +150,9 @@
 #define TAS2557_ASIM_IFACE8_REG			TAS2557_REG(0, 1, 105)
 #define TAS2557_ASIM_IFACE9_REG			TAS2557_REG(0, 1, 106)
 
-#define TAS2557_INT_GEN1_REG			TAS2557_REG(0, 1, 108)
+#define TAS2557_INT_GEN1_REG			TAS2557_REG(0, 1, 108)	/* B0_P1_R0x6c */
 #define TAS2557_INT_GEN2_REG			TAS2557_REG(0, 1, 109)
-#define TAS2557_INT_GEN3_REG			TAS2557_REG(0, 1, 110)
+#define TAS2557_INT_GEN3_REG			TAS2557_REG(0, 1, 110)	/* B0_P1_R0x6e */
 #define TAS2557_INT_GEN4_REG			TAS2557_REG(0, 1, 111)
 
 #define TAS2557_MAIN_CLKIN_REG			TAS2557_REG(0, 1, 115)
@@ -415,11 +415,13 @@ struct tas2557_priv {
 		int config);
 	int (*set_calibration)(struct tas2557_priv *pTAS2557,
 		int calibration);
-	void (*enableIRQ)(struct tas2557_priv *pTAS2557, int enable);
+	void (*enableIRQ)(struct tas2557_priv *pTAS2557, bool enable, bool clear);
 
-	int	mnGpioINT;
+	int mnLeftChlGpioINT;
+	int mnRightChlGpioINT;
 	struct work_struct irq_work;
-	unsigned int mnIRQ;
+	unsigned int mnLeftChlIRQ;
+	unsigned int mnRightChlIRQ;
 
 #ifdef CONFIG_TAS2557_MISC_STEREO
 	int mnDBGCmd;
