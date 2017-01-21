@@ -920,7 +920,7 @@ static void tas2557_load_calibration(struct tas2557_priv *pTAS2557,	char *pFileN
 *	int nResult;
 *	int nFile;
 *	mm_segment_t fs;
-*	unsigned char pBuffer[512];
+*	unsigned char pBuffer[2048];
 *	int nSize = 0;
 *
 *	dev_dbg(pTAS2557->dev, "%s:\n", __func__);
