@@ -114,7 +114,7 @@
 
 #define TAS2557_GPIO1_PIN_REG			TAS2557_REG(0, 1, 61)
 #define TAS2557_GPIO2_PIN_REG			TAS2557_REG(0, 1, 62)
-#define TAS2557_GPIO3_PIN_REG			TAS2557_REG(0, 1, 63)
+#define TAS2557_GPIO3_PIN_REG			TAS2557_REG(0, 1, 63)	/*B0_P1_R0x3f */
 #define TAS2557_GPIO4_PIN_REG			TAS2557_REG(0, 1, 64)	/*B0_P1_R0x40 */
 #define TAS2557_GPIO5_PIN_REG			TAS2557_REG(0, 1, 65)
 #define TAS2557_GPIO6_PIN_REG			TAS2557_REG(0, 1, 66)
@@ -361,6 +361,12 @@ enum channel {
 	channel_broadcast = 0x4,
 };
 
+enum echo_reference {
+	echoref_left = 0x00,
+	echoref_right = 0x01,
+	echoref_both = 0x02,
+};
+
 struct tas2557_priv {
 	struct device *dev;
 	struct regmap *mpRegmap;
@@ -422,6 +428,8 @@ struct tas2557_priv {
 	struct work_struct irq_work;
 	unsigned int mnLeftChlIRQ;
 	unsigned int mnRightChlIRQ;
+	enum echo_reference mnEchoRef;
+	unsigned char mnI2SBits;
 
 #ifdef CONFIG_TAS2557_MISC_STEREO
 	int mnDBGCmd;

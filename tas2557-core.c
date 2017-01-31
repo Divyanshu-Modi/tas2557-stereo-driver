@@ -156,65 +156,28 @@ void tas2557_configIRQ(struct tas2557_priv *pTAS2557)
 	tas2557_dev_load_data(pTAS2557, p_tas2557_irq_config);
 }
 
-int tas2557_load_platdata(struct tas2557_priv *pTAS2557)
-{
-	int ret = 0;
-	return ret;
-}
-int tas2557_load_default(struct tas2557_priv *pTAS2557)
-{
-	int ret = 0;
 
-	ret = tas2557_load_platdata(pTAS2557);
-	return ret;
-}
-
-void tas2557_enable(struct tas2557_priv *pTAS2557, bool bEnable)
+int tas2557_set_bit_rate(struct tas2557_priv *pTAS2557, enum channel chn, unsigned int nBitRate)
 {
-	dev_dbg(pTAS2557->dev, "Enable: %d\n", bEnable);
-	if (bEnable) {
-		if (!pTAS2557->mbPowerUp) {
-			dev_dbg(pTAS2557->dev, "Enable: load startup sequence\n");
-			tas2557_dev_load_data(pTAS2557, p_tas2557_startup_data);
-			dev_dbg(pTAS2557->dev, "Enable: load unmute sequence\n");
-			tas2557_dev_load_data(pTAS2557, p_tas2557_unmute_data);
-			/* turn on IRQ */
-			pTAS2557->enableIRQ(pTAS2557, true, false);
-			pTAS2557->mbPowerUp = true;
-		}
-	} else {
-		if (pTAS2557->mbPowerUp) {
-			dev_dbg(pTAS2557->dev, "Enable: load shutdown sequence\n");
-			/* turn off IRQ */
-			pTAS2557->enableIRQ(pTAS2557, false, true);
-			tas2557_dev_load_data(pTAS2557, p_tas2557_shutdown_data);
-			 /* tas2557_dev_load_data(pTAS2557, p_tas2557_shutdown_clk_err); */
-			pTAS2557->mbPowerUp = false;
-		}
-	}
-}
-
-int tas2557_set_bit_rate(struct tas2557_priv *pTAS2557,
-	enum channel chn, unsigned int nBitRate)
-{
-	int ret = 0, n = -1;
+	int ret = -1, n = -1;
 
 	dev_dbg(pTAS2557->dev, "tas2557_set_bit_rate: nBitRate = %d\n", nBitRate);
 
 	switch (nBitRate) {
 	case 16:
 		n = 0;
-	break;
+		break;
 	case 20:
 		n = 1;
-	break;
+		break;
 	case 24:
 		n = 2;
-	break;
+		break;
 	case 32:
 		n = 3;
-	break;
+		break;
 	}
+
 	if (n >= 0)
 		ret = pTAS2557->update_bits(pTAS2557, chn,
 			TAS2557_ASI1_DAC_FORMAT_REG, 0x18, n<<3);
@@ -267,6 +230,81 @@ int tas2557_set_DAC_gain(struct tas2557_priv *pTAS2557, enum channel chl, unsign
 	ret = pTAS2557->update_bits(pTAS2557, chl, TAS2557_SPK_CTRL_REG, TAS2557_DAC_GAIN_MASK,
 		(nGain<<TAS2557_DAC_GAIN_SHIFT));
 	return ret;
+}
+
+int tas2557_load_platdata(struct tas2557_priv *pTAS2557)
+{
+	int ret = 0;
+
+	if (gpio_is_valid(pTAS2557->mnLeftChlGpioINT)
+		|| gpio_is_valid(pTAS2557->mnRightChlGpioINT)) {
+		tas2557_configIRQ(pTAS2557);
+		pTAS2557->enableIRQ(pTAS2557, false, true);
+	}
+
+	ret = tas2557_set_bit_rate(pTAS2557, channel_both, pTAS2557->mnI2SBits);
+	if (ret < 0)
+		goto end;
+
+	if (pTAS2557->mnEchoRef == echoref_left) {
+		/* both TAS2557 can be configured as I2S slave mode (I2S standard) */
+		/* disable right channel DOUT */
+		pTAS2557->write(pTAS2557, channel_right, TAS2557_GPIO3_PIN_REG, 0x00);
+		pTAS2557->write(pTAS2557, channel_left, TAS2557_GPIO3_PIN_REG, 0x10);
+	} else if (pTAS2557->mnEchoRef == echoref_right) {
+		/* both TAS2557 can be configured as I2S slave mode (I2S standard) */
+		/* disable left channel DOUT */
+		pTAS2557->write(pTAS2557, channel_left, TAS2557_GPIO3_PIN_REG, 0x00);
+		pTAS2557->write(pTAS2557, channel_right, TAS2557_GPIO3_PIN_REG, 0x10);
+	} else if (pTAS2557->mnEchoRef == echoref_both) {
+		/* both TAS2557 can be configured as I2S slave mode (DSP mode) */
+		/* BCLK = WCLK * Bits * 2 (echo reference + excursion) * 2 (left channel + right channel) */
+		/* set TAS2557 to DSP mode and DOUT tri-state */
+		pTAS2557->update_bits(pTAS2557, channel_both, TAS2557_ASI1_DAC_FORMAT_REG, 0xe1, 0x21);
+		/* set TAS2557 BCLK and WCLK inverted */
+		pTAS2557->write(pTAS2557, channel_both, TAS2557_ASI1_DAC_BCLK_REG, 0x02);
+		pTAS2557->write(pTAS2557, channel_both, TAS2557_ASI1_DAC_WCLK_REG, 0x0a);
+		/* left channel offset = 1 */
+		pTAS2557->write(pTAS2557, channel_left, TAS2557_ASI1_OFFSET1_REG, 0x01);
+		/* right channel offset = 1 + Bits*2 */
+		pTAS2557->write(pTAS2557, channel_right, TAS2557_ASI1_OFFSET1_REG, 0x01 + pTAS2557->mnI2SBits * 2);
+	}
+
+end:
+
+	return ret;
+}
+int tas2557_load_default(struct tas2557_priv *pTAS2557)
+{
+	int ret = 0;
+
+	ret = tas2557_load_platdata(pTAS2557);
+	return ret;
+}
+
+void tas2557_enable(struct tas2557_priv *pTAS2557, bool bEnable)
+{
+	dev_dbg(pTAS2557->dev, "Enable: %d\n", bEnable);
+	if (bEnable) {
+		if (!pTAS2557->mbPowerUp) {
+			dev_dbg(pTAS2557->dev, "Enable: load startup sequence\n");
+			tas2557_dev_load_data(pTAS2557, p_tas2557_startup_data);
+			dev_dbg(pTAS2557->dev, "Enable: load unmute sequence\n");
+			tas2557_dev_load_data(pTAS2557, p_tas2557_unmute_data);
+			/* turn on IRQ */
+			pTAS2557->enableIRQ(pTAS2557, true, false);
+			pTAS2557->mbPowerUp = true;
+		}
+	} else {
+		if (pTAS2557->mbPowerUp) {
+			dev_dbg(pTAS2557->dev, "Enable: load shutdown sequence\n");
+			/* turn off IRQ */
+			pTAS2557->enableIRQ(pTAS2557, false, true);
+			tas2557_dev_load_data(pTAS2557, p_tas2557_shutdown_data);
+			 /* tas2557_dev_load_data(pTAS2557, p_tas2557_shutdown_clk_err); */
+			pTAS2557->mbPowerUp = false;
+		}
+	}
 }
 
 int tas2557_set_sampling_rate(struct tas2557_priv *pTAS2557, unsigned int nSamplingRate)
@@ -1148,7 +1186,7 @@ int tas2557_parse_dt(struct device *dev, struct tas2557_priv *pTAS2557)
 			"ti,load", np->full_name, rc);
 		ret = -1;
 	} else {
-		dev_dbg(pTAS2557->dev, "ti,load=%d", pTAS2557->mnLoad);
+		dev_dbg(pTAS2557->dev, "ti,load=%d\n", pTAS2557->mnLoad);
 	}
 
 	if (ret >= 0) {
@@ -1198,6 +1236,7 @@ int tas2557_parse_dt(struct device *dev, struct tas2557_priv *pTAS2557)
 			dev_dbg(pTAS2557->dev, "ti,left-channel=0x%x\n", pTAS2557->mnLAddr);
 		}
 	}
+
 	if (ret >= 0) {
 		rc = of_property_read_u32(np, "ti,right-channel", &value);
 		if (rc) {
@@ -1206,9 +1245,34 @@ int tas2557_parse_dt(struct device *dev, struct tas2557_priv *pTAS2557)
 			ret = -3;
 		} else {
 			pTAS2557->mnRAddr = value;
-			dev_dbg(pTAS2557->dev, "ti,right-channel=0x%x", pTAS2557->mnRAddr);
+			dev_dbg(pTAS2557->dev, "ti,right-channel=0x%x\n", pTAS2557->mnRAddr);
 		}
 	}
+
+	if (ret >= 0) {
+		rc = of_property_read_u32(np, "ti,echo-ref", &value);
+		if (rc) {
+			dev_err(pTAS2557->dev, "Looking up %s property in node %s failed %d\n",
+				"ti,echo-ref", np->full_name, rc);
+			ret = -3;
+		} else {
+			pTAS2557->mnEchoRef = value;
+			dev_dbg(pTAS2557->dev, "ti,echo-ref=%d\n", pTAS2557->mnEchoRef);
+		}
+	}
+
+	if (ret >= 0) {
+		rc = of_property_read_u32(np, "ti,i2s-bits", &value);
+		if (rc) {
+			dev_err(pTAS2557->dev, "Looking up %s property in node %s failed %d\n",
+				"ti,i2s-bits", np->full_name, rc);
+			ret = -3;
+		} else {
+			pTAS2557->mnI2SBits = value;
+			dev_dbg(pTAS2557->dev, "ti,i2s-bits=%d\n", pTAS2557->mnI2SBits);
+		}
+	}
+
 	return ret;
 }
 

@@ -756,8 +756,6 @@ static int tas2557_i2c_probe(struct i2c_client *pClient,
 	if (gpio_is_valid(pTAS2557->mnLeftChlGpioINT)
 		|| gpio_is_valid(pTAS2557->mnRightChlGpioINT)) {
 		INIT_WORK(&pTAS2557->irq_work, irq_work_routine);
-		tas2557_configIRQ(pTAS2557);
-		tas2557_enableIRQ(pTAS2557, false, true);
 	}
 
 	pTAS2557->mpFirmware = devm_kzalloc(&pClient->dev, sizeof(struct TFirmware), GFP_KERNEL);

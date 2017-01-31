@@ -149,8 +149,8 @@ static int tas2557_hw_params(struct snd_pcm_substream *pSubstream,
 	struct tas2557_priv *pTAS2557 = snd_soc_codec_get_drvdata(pCodec);
 
 	dev_dbg(pTAS2557->dev, "%s\n", __func__);
-	tas2557_set_bit_rate(pTAS2557, channel_both,
-		snd_pcm_format_width(params_format(pParams)));
+/* do bit rate setting during platform data */
+/* tas2557_set_bit_rate(pTAS2557, channel_both, snd_pcm_format_width(params_format(pParams))); */
 	tas2557_set_sampling_rate(pTAS2557, params_rate(pParams));
 	return 0;
 }
