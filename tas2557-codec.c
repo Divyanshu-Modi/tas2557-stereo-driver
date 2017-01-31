@@ -48,7 +48,7 @@
 #include "tas2557-core.h"
 #include "tas2557-codec.h"
 
-#undef KCONTROL_CODEC
+#define KCONTROL_CODEC
 
 static unsigned int tas2557_codec_read(struct snd_soc_codec *pCodec,
 	unsigned int nRegister)

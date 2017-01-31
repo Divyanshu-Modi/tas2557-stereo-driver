@@ -282,11 +282,56 @@ int tas2557_load_default(struct tas2557_priv *pTAS2557)
 	return ret;
 }
 
-void tas2557_enable(struct tas2557_priv *pTAS2557, bool bEnable)
+int tas2557_enable(struct tas2557_priv *pTAS2557, bool bEnable)
 {
+	int ret = -1, nRetry = 10;
+	unsigned char nBuf[4];
+	unsigned int nValue;
+
 	dev_dbg(pTAS2557->dev, "Enable: %d\n", bEnable);
 	if (bEnable) {
 		if (!pTAS2557->mbPowerUp) {
+pllcheck:
+			ret = pTAS2557->write(pTAS2557, channel_both, TAS2557_POWER_CTRL1_REG, 0xf8);
+			if (ret < 0)
+				goto end;
+			msleep(2);
+
+			/* check TAS2557 device 1 */
+			memset(nBuf, 0, 4);
+			ret = pTAS2557->bulk_read(pTAS2557, channel_left, TAS2557_XMEM_44_REG, nBuf, 4);
+			nValue = ((unsigned int)nBuf[0] << 24) | ((unsigned int)nBuf[1] << 16) | ((unsigned int)nBuf[2] << 8) | nBuf[3];
+			if (nValue == 0) {
+				ret = pTAS2557->write(pTAS2557, channel_both, TAS2557_POWER_CTRL1_REG, 0x60);
+				msleep(2);
+				ret = pTAS2557->write(pTAS2557, channel_both, TAS2557_POWER_CTRL1_REG, 0x00);
+				msleep(2);
+				nRetry--;
+				ret = -1;
+				if (nRetry == 0)
+					goto end;
+
+				dev_info(pTAS2557->dev, "PLL is absent, check again %d\n", nRetry);
+				goto pllcheck;
+			}
+			/* check TAS2557 device 2 */
+			memset(nBuf, 0, 4);
+			ret = pTAS2557->bulk_read(pTAS2557, channel_right, TAS2557_XMEM_44_REG, nBuf, 4);
+			nValue = ((unsigned int)nBuf[0] << 24) | ((unsigned int)nBuf[1] << 16) | ((unsigned int)nBuf[2] << 8) | nBuf[3];
+			if (nValue == 0) {
+				ret = pTAS2557->write(pTAS2557, channel_both, TAS2557_POWER_CTRL1_REG, 0x60);
+				msleep(2);
+				ret = pTAS2557->write(pTAS2557, channel_both, TAS2557_POWER_CTRL1_REG, 0x00);
+				msleep(2);
+				nRetry--;
+				ret = -1;
+				if (nRetry == 0)
+					goto end;
+
+				dev_info(pTAS2557->dev, "PLL is absent, check again %d\n", nRetry);
+				goto pllcheck;
+			}
+
 			dev_dbg(pTAS2557->dev, "Enable: load startup sequence\n");
 			tas2557_dev_load_data(pTAS2557, p_tas2557_startup_data);
 			dev_dbg(pTAS2557->dev, "Enable: load unmute sequence\n");
@@ -305,6 +350,18 @@ void tas2557_enable(struct tas2557_priv *pTAS2557, bool bEnable)
 			pTAS2557->mbPowerUp = false;
 		}
 	}
+
+	ret = 0;
+
+end:
+	if (ret < 0) {
+		if (nRetry == 0)
+			dev_err(pTAS2557->dev, "PLL is absent and enable timeout\n");
+		else
+			dev_err(pTAS2557->dev, "enable failure %d\n", ret);
+	}
+
+	return ret;
 }
 
 int tas2557_set_sampling_rate(struct tas2557_priv *pTAS2557, unsigned int nSamplingRate)
