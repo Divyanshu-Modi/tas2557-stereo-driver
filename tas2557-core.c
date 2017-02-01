@@ -156,6 +156,42 @@ void tas2557_configIRQ(struct tas2557_priv *pTAS2557)
 	tas2557_dev_load_data(pTAS2557, p_tas2557_irq_config);
 }
 
+int tas2557_SA_SwapChannel(struct tas2557_priv *pTAS2557, bool swap)
+{
+	int ret = 0;
+	unsigned char buf_a[8], buf_b[8];
+	unsigned char push[4] = {0, 0, 0, 1};
+
+	/* for left channel, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 */
+	/* for right channel, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00 */
+	/* for (left+right)/2 , 0x20, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00 */
+	if (swap != pTAS2557->mnChannelSwap) {
+		/* get current configuration */
+		ret = pTAS2557->bulk_read(pTAS2557, channel_left, TAS2557_SA_CHL_CTRL_REG, buf_a, 8);
+		if (ret < 0) {
+			dev_err(pTAS2557->dev, "%s, left I2C error\n", __func__);
+			goto end;
+		}
+
+		pTAS2557->bulk_read(pTAS2557, channel_right, TAS2557_SA_CHL_CTRL_REG, buf_b, 8);
+		if (ret < 0) {
+			dev_err(pTAS2557->dev, "%s, right I2C error\n", __func__);
+			goto end;
+		}
+
+		/* do channel swap */
+		pTAS2557->bulk_write(pTAS2557, channel_left, TAS2557_SA_CHL_CTRL_REG, buf_b, 8);
+		pTAS2557->bulk_write(pTAS2557, channel_right, TAS2557_SA_CHL_CTRL_REG, buf_a, 8);
+		/* push to DSP */
+		pTAS2557->bulk_write(pTAS2557, channel_both, TAS2557_SA_COEFF_SWAP_REG, push, 4);
+
+		pTAS2557->mnChannelSwap = swap;
+	}
+
+end:
+
+	return ret;
+}
 
 int tas2557_set_bit_rate(struct tas2557_priv *pTAS2557, enum channel chn, unsigned int nBitRate)
 {

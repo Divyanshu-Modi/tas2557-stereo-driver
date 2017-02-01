@@ -438,6 +438,41 @@ static int tas2557_rdac_gain_put(struct snd_kcontrol *pKcontrol,
 	return ret;
 }
 
+static const char * const chl_ctl_text[] = {"default", "swap"};
+static const struct soc_enum chl_ctl_enum[] = {
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(chl_ctl_text), chl_ctl_text),
+};
+
+static int tas2557_chl_ctl_get(struct snd_kcontrol *pKcontrol,
+			struct snd_ctl_elem_value *pValue)
+{
+#ifdef KCONTROL_CODEC
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
+#else
+	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
+#endif
+	struct tas2557_priv *pTAS2557 = snd_soc_codec_get_drvdata(codec);
+
+	pValue->value.integer.value[0] = pTAS2557->mnChannelSwap;
+
+	return 0;
+}
+
+static int tas2557_chl_ctl_put(struct snd_kcontrol *pKcontrol,
+			struct snd_ctl_elem_value *pValue)
+{
+#ifdef KCONTROL_CODEC
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
+#else
+	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
+#endif
+	struct tas2557_priv *pTAS2557 = snd_soc_codec_get_drvdata(codec);
+	int swap = pValue->value.integer.value[0];
+
+	tas2557_SA_SwapChannel(pTAS2557, (swap != 0));
+	return 0;
+}
+
 static const struct snd_kcontrol_new tas2557_snd_controls[] = {
 	SOC_SINGLE_EXT("Stereo LDAC Playback Volume", SND_SOC_NOPM, 0, 0x0f, 0,
 		tas2557_ldac_gain_get, tas2557_ldac_gain_put),
@@ -453,6 +488,8 @@ static const struct snd_kcontrol_new tas2557_snd_controls[] = {
 		tas2557_fs_get, tas2557_fs_put),
 	SOC_SINGLE_EXT("Stereo Calibration", SND_SOC_NOPM, 0, 0x00FF, 0,
 		tas2557_calibration_get, tas2557_calibration_put),
+	SOC_ENUM_EXT("Stereo Channel Ctrl", chl_ctl_enum[0],
+		tas2557_chl_ctl_get, tas2557_chl_ctl_put),
 };
 
 static struct snd_soc_codec_driver soc_codec_driver_tas2557 = {

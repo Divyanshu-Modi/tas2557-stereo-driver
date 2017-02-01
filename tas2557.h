@@ -171,6 +171,9 @@
 #define TAS2557_THERMAL_FOLDBACK_REG	TAS2557_REG(0, 51, 100)
 #define TAS2557_VPRED_COMP_REG			TAS2557_REG(0, 53, 24)
 
+#define TAS2557_SA_COEFF_SWAP_REG		TAS2557_REG(0, 53, 44)
+#define TAS2557_SA_CHL_CTRL_REG		TAS2557_REG(0, 58, 120)
+
 #define TAS2557_TEST_MODE_REG			TAS2557_REG(0, 253, 13)
 #define TAS2557_BROADCAST_REG			TAS2557_REG(0, 253, 54)
 #define TAS2557_CRYPTIC_REG			TAS2557_REG(0, 253, 71)
@@ -433,6 +436,8 @@ struct tas2557_priv {
 	unsigned int mnRightChlIRQ;
 	enum echo_reference mnEchoRef;
 	unsigned char mnI2SBits;
+
+	bool mnChannelSwap;	/* 0, default; 1, swapped */
 
 #ifdef CONFIG_TAS2557_MISC_STEREO
 	int mnDBGCmd;
