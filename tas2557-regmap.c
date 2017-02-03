@@ -540,10 +540,10 @@ void tas2557_enableIRQ(struct tas2557_priv *pTAS2557, bool enable, bool clear)
 			enable_irq(pTAS2557->mnRightChlIRQ);
 	} else {
 		if (pTAS2557->mnLeftChlIRQ != 0)
-			disable_irq(pTAS2557->mnLeftChlIRQ);
+			disable_irq_nosync(pTAS2557->mnLeftChlIRQ);
 		if ((pTAS2557->mnRightChlIRQ != 0)
 			&& (pTAS2557->mnRightChlIRQ != pTAS2557->mnLeftChlIRQ))
-			disable_irq(pTAS2557->mnRightChlIRQ);
+			disable_irq_nosync(pTAS2557->mnRightChlIRQ);
 
 		if (clear) {
 			pTAS2557->read(pTAS2557, channel_left, TAS2557_FLAGS_1, &nValue);

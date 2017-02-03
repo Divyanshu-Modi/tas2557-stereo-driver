@@ -151,9 +151,9 @@ static int tas2557_dev_load_data(struct tas2557_priv *pTAS2557,
 	return ret;
 }
 
-void tas2557_configIRQ(struct tas2557_priv *pTAS2557)
+int tas2557_configIRQ(struct tas2557_priv *pTAS2557)
 {
-	tas2557_dev_load_data(pTAS2557, p_tas2557_irq_config);
+	return tas2557_dev_load_data(pTAS2557, p_tas2557_irq_config);
 }
 
 int tas2557_SA_SwapChannel(struct tas2557_priv *pTAS2557, bool swap)
@@ -186,6 +186,45 @@ int tas2557_SA_SwapChannel(struct tas2557_priv *pTAS2557, bool swap)
 		pTAS2557->bulk_write(pTAS2557, channel_both, TAS2557_SA_COEFF_SWAP_REG, push, 4);
 
 		pTAS2557->mnChannelSwap = swap;
+	}
+
+end:
+
+	return ret;
+}
+
+int tas2557_SA_ctl_echoRef(struct tas2557_priv *pTAS2557)
+{
+	int ret = 0;
+
+	if (pTAS2557->mnEchoRef == echoref_left) {
+		/* both TAS2557 can be configured as I2S slave mode (I2S standard) */
+		/* disable right channel DOUT */
+		ret = pTAS2557->write(pTAS2557, channel_right, TAS2557_GPIO3_PIN_REG, 0x00);
+		if (ret < 0)
+			goto end;
+		ret = pTAS2557->write(pTAS2557, channel_left, TAS2557_GPIO3_PIN_REG, 0x10);
+	} else if (pTAS2557->mnEchoRef == echoref_right) {
+		/* both TAS2557 can be configured as I2S slave mode (I2S standard) */
+		/* disable left channel DOUT */
+		ret = pTAS2557->write(pTAS2557, channel_left, TAS2557_GPIO3_PIN_REG, 0x00);
+		if (ret < 0)
+			goto end;
+		ret = pTAS2557->write(pTAS2557, channel_right, TAS2557_GPIO3_PIN_REG, 0x10);
+	} else if (pTAS2557->mnEchoRef == echoref_both) {
+		/* both TAS2557 can be configured as I2S slave mode (DSP mode) */
+		/* BCLK = WCLK * Bits * 2 (echo reference + excursion) * 2 (left channel + right channel) */
+		/* set TAS2557 to DSP mode and DOUT tri-state */
+		ret = pTAS2557->update_bits(pTAS2557, channel_both, TAS2557_ASI1_DAC_FORMAT_REG, 0xe1, 0x21);
+		if (ret < 0)
+			goto end;
+		/* set TAS2557 BCLK and WCLK inverted */
+		ret = pTAS2557->write(pTAS2557, channel_both, TAS2557_ASI1_DAC_BCLK_REG, 0x02);
+		ret = pTAS2557->write(pTAS2557, channel_both, TAS2557_ASI1_DAC_WCLK_REG, 0x0a);
+		/* left channel offset = 1 */
+		ret = pTAS2557->write(pTAS2557, channel_left, TAS2557_ASI1_OFFSET1_REG, 0x01);
+		/* right channel offset = 1 + Bits*2 */
+		ret = pTAS2557->write(pTAS2557, channel_right, TAS2557_ASI1_OFFSET1_REG, 0x01 + pTAS2557->mnI2SBits * 2);
 	}
 
 end:
@@ -274,7 +313,9 @@ int tas2557_load_platdata(struct tas2557_priv *pTAS2557)
 
 	if (gpio_is_valid(pTAS2557->mnLeftChlGpioINT)
 		|| gpio_is_valid(pTAS2557->mnRightChlGpioINT)) {
-		tas2557_configIRQ(pTAS2557);
+		ret = tas2557_configIRQ(pTAS2557);
+		if (ret < 0)
+			goto end;
 		pTAS2557->enableIRQ(pTAS2557, false, true);
 	}
 
@@ -282,29 +323,7 @@ int tas2557_load_platdata(struct tas2557_priv *pTAS2557)
 	if (ret < 0)
 		goto end;
 
-	if (pTAS2557->mnEchoRef == echoref_left) {
-		/* both TAS2557 can be configured as I2S slave mode (I2S standard) */
-		/* disable right channel DOUT */
-		pTAS2557->write(pTAS2557, channel_right, TAS2557_GPIO3_PIN_REG, 0x00);
-		pTAS2557->write(pTAS2557, channel_left, TAS2557_GPIO3_PIN_REG, 0x10);
-	} else if (pTAS2557->mnEchoRef == echoref_right) {
-		/* both TAS2557 can be configured as I2S slave mode (I2S standard) */
-		/* disable left channel DOUT */
-		pTAS2557->write(pTAS2557, channel_left, TAS2557_GPIO3_PIN_REG, 0x00);
-		pTAS2557->write(pTAS2557, channel_right, TAS2557_GPIO3_PIN_REG, 0x10);
-	} else if (pTAS2557->mnEchoRef == echoref_both) {
-		/* both TAS2557 can be configured as I2S slave mode (DSP mode) */
-		/* BCLK = WCLK * Bits * 2 (echo reference + excursion) * 2 (left channel + right channel) */
-		/* set TAS2557 to DSP mode and DOUT tri-state */
-		pTAS2557->update_bits(pTAS2557, channel_both, TAS2557_ASI1_DAC_FORMAT_REG, 0xe1, 0x21);
-		/* set TAS2557 BCLK and WCLK inverted */
-		pTAS2557->write(pTAS2557, channel_both, TAS2557_ASI1_DAC_BCLK_REG, 0x02);
-		pTAS2557->write(pTAS2557, channel_both, TAS2557_ASI1_DAC_WCLK_REG, 0x0a);
-		/* left channel offset = 1 */
-		pTAS2557->write(pTAS2557, channel_left, TAS2557_ASI1_OFFSET1_REG, 0x01);
-		/* right channel offset = 1 + Bits*2 */
-		pTAS2557->write(pTAS2557, channel_right, TAS2557_ASI1_OFFSET1_REG, 0x01 + pTAS2557->mnI2SBits * 2);
-	}
+	tas2557_SA_ctl_echoRef(pTAS2557);
 
 end:
 

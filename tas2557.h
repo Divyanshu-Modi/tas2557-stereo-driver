@@ -370,7 +370,7 @@ enum channel {
 enum echo_reference {
 	echoref_left = 0x00,
 	echoref_right = 0x01,
-	echoref_both = 0x02,
+	echoref_both = 0x02
 };
 
 struct tas2557_priv {
