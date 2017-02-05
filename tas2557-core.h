@@ -24,6 +24,37 @@
 
 #include "tas2557.h"
 
+#define TAS2557_YRAM_BOOK1				140
+
+#define TAS2557_YRAM1_PAGE				42
+#define TAS2557_YRAM1_START_REG			88
+#define TAS2557_YRAM1_END_REG			127
+
+#define TAS2557_YRAM2_START_PAGE		43
+#define TAS2557_YRAM2_END_PAGE			49
+#define TAS2557_YRAM2_START_REG			8
+#define TAS2557_YRAM2_END_REG			127
+
+#define TAS2557_YRAM3_PAGE				50
+#define TAS2557_YRAM3_START_REG			8
+#define TAS2557_YRAM3_END_REG			23
+
+/* should not include B0_P53_R44-R47 */
+#define TAS2557_YRAM_BOOK2				0
+#define TAS2557_YRAM4_START_PAGE		50
+#define TAS2557_YRAM4_END_PAGE			60
+#define TAS2557_YRAM4_START_REG			8
+#define TAS2557_YRAM4_END_REG			127
+
+#define TAS2557_YRAM5_PAGE				61
+#define TAS2557_YRAM5_START_REG			8
+#define TAS2557_YRAM5_END_REG			27
+
+struct TYCRC {
+	unsigned char mnOffset;
+	unsigned char mnLen;
+};
+
 int tas2557_enable(struct tas2557_priv *pTAS2557, bool bEnable);
 int tas2557_SA_SwapChannel(struct tas2557_priv *pTAS2557, bool swap);
 int tas2557_SA_ctl_echoRef(struct tas2557_priv *pTAS2557);

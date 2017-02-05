@@ -521,15 +521,20 @@ static int tas2557_dev_update_bits(
 	return nResult;
 }
 
-void tas2557_enableIRQ(struct tas2557_priv *pTAS2557, bool enable, bool clear)
+int tas2557_enableIRQ(struct tas2557_priv *pTAS2557, bool enable, bool clear)
 {
 	unsigned int nValue;
+	int nResult = 0;
 
 	if (enable) {
 		if (clear) {
-			pTAS2557->read(pTAS2557, channel_left, TAS2557_FLAGS_1, &nValue);
+			nResult = pTAS2557->read(pTAS2557, channel_left, TAS2557_FLAGS_1, &nValue);
+			if (nResult < 0)
+				goto end;
 			pTAS2557->read(pTAS2557, channel_left, TAS2557_FLAGS_2, &nValue);
-			pTAS2557->read(pTAS2557, channel_right, TAS2557_FLAGS_1, &nValue);
+			nResult = pTAS2557->read(pTAS2557, channel_right, TAS2557_FLAGS_1, &nValue);
+			if (nResult < 0)
+				goto end;
 			pTAS2557->read(pTAS2557, channel_right, TAS2557_FLAGS_2, &nValue);
 		}
 
@@ -546,12 +551,20 @@ void tas2557_enableIRQ(struct tas2557_priv *pTAS2557, bool enable, bool clear)
 			disable_irq_nosync(pTAS2557->mnRightChlIRQ);
 
 		if (clear) {
-			pTAS2557->read(pTAS2557, channel_left, TAS2557_FLAGS_1, &nValue);
+			nResult = pTAS2557->read(pTAS2557, channel_left, TAS2557_FLAGS_1, &nValue);
+			if (nResult < 0)
+				goto end;
 			pTAS2557->read(pTAS2557, channel_left, TAS2557_FLAGS_2, &nValue);
-			pTAS2557->read(pTAS2557, channel_right, TAS2557_FLAGS_1, &nValue);
+			nResult = pTAS2557->read(pTAS2557, channel_right, TAS2557_FLAGS_1, &nValue);
+			if (nResult < 0)
+				goto end;
 			pTAS2557->read(pTAS2557, channel_right, TAS2557_FLAGS_2, &nValue);
 		}
 	}
+
+end:
+
+	return nResult;
 }
 
 static void irq_work_routine(struct work_struct *work)

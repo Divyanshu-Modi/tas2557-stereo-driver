@@ -291,6 +291,10 @@
 
 struct TBlock {
 	unsigned int mnType;
+	unsigned char mbPChkSumPresent;
+	unsigned char mnPChkSum;
+	unsigned char mbYChkSumPresent;
+	unsigned char mnYChkSum;
 	unsigned int mnCommands;
 	unsigned char *mpData;
 };
@@ -427,7 +431,7 @@ struct tas2557_priv {
 		int config);
 	int (*set_calibration)(struct tas2557_priv *pTAS2557,
 		int calibration);
-	void (*enableIRQ)(struct tas2557_priv *pTAS2557, bool enable, bool clear);
+	int (*enableIRQ)(struct tas2557_priv *pTAS2557, bool enable, bool clear);
 
 	int mnLeftChlGpioINT;
 	int mnRightChlGpioINT;
