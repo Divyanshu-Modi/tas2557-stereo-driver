@@ -79,6 +79,7 @@ static unsigned int p_tas2557_irq_config[] = {
 	channel_both, TAS2557_INT_GEN2_REG, 0x11,	/* enable clk err1 and die OT */
 	channel_both, TAS2557_INT_GEN3_REG, 0x11,	/* enable clk err2 and brownout */
 	channel_both, TAS2557_INT_GEN4_REG, 0x01,	/* disable SAR, enable clk halt */
+	channel_both, TAS2557_INT_MODE_REG, 0x80,	/* active high until INT_STICKY_1 and INT_STICKY_2 are read to be cleared. */
 	0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF
 };
 
