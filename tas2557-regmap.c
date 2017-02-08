@@ -581,7 +581,7 @@ static void irq_work_routine(struct work_struct *work)
 	if (nResult < 0) {
 		dev_err(pTAS2557->dev, "left channel I2C doesn't work\n");
 		goto program;
-	} else if ((nDevIntStatus && 0xdc) != 0) {
+	} else if ((nDevIntStatus & 0xdc) != 0) {
 		/* in case of INT_OC, INT_UV, INT_OT, INT_BO, INT_CL */
 		dev_err(pTAS2557->dev, "left channel critical error 0x%x\n", nDevIntStatus);
 		goto program;
@@ -592,7 +592,7 @@ static void irq_work_routine(struct work_struct *work)
 	if (nResult < 0) {
 		dev_err(pTAS2557->dev, "right channel I2C doesn't work\n");
 		goto program;
-	} else if ((nDevIntStatus && 0xdc) != 0) {
+	} else if ((nDevIntStatus & 0xdc) != 0) {
 		/* in case of INT_OC, INT_UV, INT_OT, INT_BO, INT_CL */
 		dev_err(pTAS2557->dev, "right channel critical error 0x%x\n", nDevIntStatus);
 		goto program;
@@ -733,7 +733,7 @@ static int tas2557_i2c_probe(struct i2c_client *pClient,
 		pTAS2557->mnLeftChlIRQ = gpio_to_irq(pTAS2557->mnLeftChlGpioINT);
 		dev_dbg(pTAS2557->dev, "irq = %d\n", pTAS2557->mnLeftChlIRQ);
 		nResult = request_threaded_irq(pTAS2557->mnLeftChlIRQ, tas2557_irq_handler,
-				NULL, IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+				NULL, IRQF_TRIGGER_RISING | IRQF_ONESHOT,
 				pClient->name, pTAS2557);
 		if (nResult < 0) {
 			dev_err(pTAS2557->dev,
@@ -756,7 +756,7 @@ static int tas2557_i2c_probe(struct i2c_client *pClient,
 			pTAS2557->mnRightChlIRQ = gpio_to_irq(pTAS2557->mnRightChlGpioINT);
 			dev_dbg(pTAS2557->dev, "irq = %d\n", pTAS2557->mnRightChlIRQ);
 			nResult = request_threaded_irq(pTAS2557->mnRightChlIRQ, tas2557_irq_handler,
-					NULL, IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+					NULL, IRQF_TRIGGER_RISING | IRQF_ONESHOT,
 					pClient->name, pTAS2557);
 			if (nResult < 0) {
 				dev_err(pTAS2557->dev,
