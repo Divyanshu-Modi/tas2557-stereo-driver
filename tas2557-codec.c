@@ -222,15 +222,11 @@ static int tas2557_power_ctrl_put(struct snd_kcontrol *pKcontrol,
 #endif
 	struct tas2557_priv *pTAS2557 = snd_soc_codec_get_drvdata(codec);
 
-	pTAS2557->mbPowerUp = pValue->value.integer.value[0];
+	int nPowerOn = pValue->value.integer.value[0];
 
-	dev_dbg(pTAS2557->dev, "tas2557_power_ctrl_put = %d\n",
-		pTAS2557->mbPowerUp);
+	dev_dbg(pTAS2557->dev, "tas2557_power_ctrl_put = %d\n", nPowerOn);
 
-	if (pTAS2557->mbPowerUp == 1)
-		tas2557_enable(pTAS2557, true);
-	if (pTAS2557->mbPowerUp == 0)
-		tas2557_enable(pTAS2557, false);
+	tas2557_enable(pTAS2557, (nPowerOn != 0));
 	return 0;
 }
 
