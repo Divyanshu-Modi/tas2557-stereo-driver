@@ -538,17 +538,23 @@ int tas2557_enableIRQ(struct tas2557_priv *pTAS2557, bool enable, bool clear)
 			pTAS2557->read(pTAS2557, channel_right, TAS2557_FLAGS_2, &nValue);
 		}
 
-		if (pTAS2557->mnLeftChlIRQ != 0)
-			enable_irq(pTAS2557->mnLeftChlIRQ);
-		if ((pTAS2557->mnRightChlIRQ != 0)
-			&& (pTAS2557->mnRightChlIRQ != pTAS2557->mnLeftChlIRQ))
-			enable_irq(pTAS2557->mnRightChlIRQ);
+		if (!pTAS2557->mbIRQEnable) {
+			if (pTAS2557->mnLeftChlIRQ != 0)
+				enable_irq(pTAS2557->mnLeftChlIRQ);
+			if ((pTAS2557->mnRightChlIRQ != 0)
+				&& (pTAS2557->mnRightChlIRQ != pTAS2557->mnLeftChlIRQ))
+				enable_irq(pTAS2557->mnRightChlIRQ);
+			pTAS2557->mbIRQEnable = true;
+		}
 	} else {
-		if (pTAS2557->mnLeftChlIRQ != 0)
-			disable_irq_nosync(pTAS2557->mnLeftChlIRQ);
-		if ((pTAS2557->mnRightChlIRQ != 0)
-			&& (pTAS2557->mnRightChlIRQ != pTAS2557->mnLeftChlIRQ))
-			disable_irq_nosync(pTAS2557->mnRightChlIRQ);
+		if (pTAS2557->mbIRQEnable) {
+			if (pTAS2557->mnLeftChlIRQ != 0)
+				disable_irq_nosync(pTAS2557->mnLeftChlIRQ);
+			if ((pTAS2557->mnRightChlIRQ != 0)
+				&& (pTAS2557->mnRightChlIRQ != pTAS2557->mnLeftChlIRQ))
+				disable_irq_nosync(pTAS2557->mnRightChlIRQ);
+			pTAS2557->mbIRQEnable = false;
+		}
 
 		if (clear) {
 			nResult = pTAS2557->read(pTAS2557, channel_left, TAS2557_FLAGS_1, &nValue);
@@ -570,34 +576,35 @@ end:
 static void irq_work_routine(struct work_struct *work)
 {
 	int nResult = 0;
-	unsigned int nDevIntStatus;
+	unsigned int nDevLInt1Status = 0, nDevLInt2Status = 0;
+	unsigned int nDevRInt1Status = 0, nDevRInt2Status = 0;
 	struct tas2557_priv *pTAS2557 =
 		container_of(work, struct tas2557_priv, irq_work);
 
 	if (!pTAS2557->mbPowerUp)
 		return;
 
-	nResult = tas2557_dev_read(pTAS2557, channel_left, TAS2557_FLAGS_1, &nDevIntStatus);
-	if (nResult < 0) {
+	nResult = tas2557_dev_read(pTAS2557, channel_left, TAS2557_FLAGS_1, &nDevLInt1Status);
+	if (nResult < 0)
 		dev_err(pTAS2557->dev, "left channel I2C doesn't work\n");
-		goto program;
-	} else if ((nDevIntStatus & 0xdc) != 0) {
-		/* in case of INT_OC, INT_UV, INT_OT, INT_BO, INT_CL */
-		dev_err(pTAS2557->dev, "left channel critical error 0x%x\n", nDevIntStatus);
-		goto program;
-	} else
-		dev_dbg(pTAS2557->dev, "%s, left int 0x%x\n", __func__, nDevIntStatus);
+	else
+		nResult = tas2557_dev_read(pTAS2557, channel_left, TAS2557_FLAGS_2, &nDevLInt2Status);
 
-	nResult = tas2557_dev_read(pTAS2557, channel_right, TAS2557_FLAGS_1, &nDevIntStatus);
-	if (nResult < 0) {
+	nResult = tas2557_dev_read(pTAS2557, channel_right, TAS2557_FLAGS_1, &nDevRInt1Status);
+	if (nResult < 0)
 		dev_err(pTAS2557->dev, "right channel I2C doesn't work\n");
-		goto program;
-	} else if ((nDevIntStatus & 0xdc) != 0) {
-		/* in case of INT_OC, INT_UV, INT_OT, INT_BO, INT_CL */
-		dev_err(pTAS2557->dev, "right channel critical error 0x%x\n", nDevIntStatus);
+	else
+		nResult = tas2557_dev_read(pTAS2557, channel_right, TAS2557_FLAGS_2, &nDevRInt2Status);
+
+	if (((nDevLInt1Status & 0xdc) != 0) || ((nDevLInt2Status & 0x0c) != 0)
+		|| ((nDevRInt1Status & 0xdc) != 0) || ((nDevRInt2Status & 0x0c) != 0)) {
+		/* in case of INT_OC, INT_UV, INT_OT, INT_BO, INT_CL, INT_CLK1, INT_CLK2 */
+		dev_err(pTAS2557->dev, "critical error L: 0x%x, 0x%x; R: 0x%x, 0x%x\n",
+			nDevLInt1Status, nDevLInt2Status, nDevRInt1Status, nDevRInt2Status);
 		goto program;
 	} else
-		dev_dbg(pTAS2557->dev, "%s, right int 0x%x\n", __func__, nDevIntStatus);
+		dev_dbg(pTAS2557->dev, "%s, L: 0x%x, 0x%x; R: 0x%x, 0x%x\n",
+			__func__, nDevLInt1Status, nDevLInt2Status, nDevRInt1Status, nDevRInt2Status);
 
 	return;
 

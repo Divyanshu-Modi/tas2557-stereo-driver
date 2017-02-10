@@ -439,6 +439,7 @@ struct tas2557_priv {
 	struct work_struct irq_work;
 	unsigned int mnLeftChlIRQ;
 	unsigned int mnRightChlIRQ;
+	bool mbIRQEnable;
 	enum echo_reference mnEchoRef;
 	unsigned char mnI2SBits;
 
