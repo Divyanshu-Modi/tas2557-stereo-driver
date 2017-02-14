@@ -579,7 +579,7 @@ static void irq_work_routine(struct work_struct *work)
 	unsigned int nDevLInt1Status = 0, nDevLInt2Status = 0;
 	unsigned int nDevRInt1Status = 0, nDevRInt2Status = 0;
 	struct tas2557_priv *pTAS2557 =
-		container_of(work, struct tas2557_priv, irq_work);
+		container_of(work, struct tas2557_priv, irq_work.work);
 
 	if (!pTAS2557->mbPowerUp)
 		return;
@@ -628,7 +628,8 @@ static irqreturn_t tas2557_irq_handler(int irq, void *dev_id)
 	struct tas2557_priv *pTAS2557 = (struct tas2557_priv *)dev_id;
 
 	tas2557_enableIRQ(pTAS2557, false, false);
-	schedule_work(&pTAS2557->irq_work);
+	/* get IRQ status after 100 ms */
+	schedule_delayed_work(&pTAS2557->irq_work, msecs_to_jiffies(100));
 	return IRQ_HANDLED;
 }
 
@@ -775,7 +776,7 @@ static int tas2557_i2c_probe(struct i2c_client *pClient,
 
 	if (gpio_is_valid(pTAS2557->mnLeftChlGpioINT)
 		|| gpio_is_valid(pTAS2557->mnRightChlGpioINT)) {
-		INIT_WORK(&pTAS2557->irq_work, irq_work_routine);
+		INIT_DELAYED_WORK(&pTAS2557->irq_work, irq_work_routine);
 	}
 
 	pTAS2557->mpFirmware = devm_kzalloc(&pClient->dev, sizeof(struct TFirmware), GFP_KERNEL);

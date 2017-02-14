@@ -23,6 +23,7 @@
 #define _TAS2557_H
 
 #include <linux/regmap.h>
+#include <linux/workqueue.h>
 
 /* Page Control Register */
 #define TAS2557_PAGECTL_REG			0
@@ -436,7 +437,7 @@ struct tas2557_priv {
 
 	int mnLeftChlGpioINT;
 	int mnRightChlGpioINT;
-	struct work_struct irq_work;
+	struct delayed_work irq_work;
 	unsigned int mnLeftChlIRQ;
 	unsigned int mnRightChlIRQ;
 	bool mbIRQEnable;
