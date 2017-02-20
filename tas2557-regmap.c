@@ -573,6 +573,23 @@ end:
 	return nResult;
 }
 
+static void tas2557_hw_reset(struct tas2557_priv *pTAS2557)
+{
+#ifdef ENABLE_GPIO_RESET
+	if (gpio_is_valid(pTAS2557->mnResetGPIO)) {
+		devm_gpio_request_one(pTAS2557->dev, pTAS2557->mnResetGPIO,
+			GPIOF_OUT_INIT_LOW, "TAS2557_RST");
+		msleep(10);
+		gpio_set_value_cansleep(pTAS2557->mnResetGPIO, 1);
+		udelay(1000);
+	}
+#endif
+	pTAS2557->mnLCurrentBook = -1;
+	pTAS2557->mnLCurrentPage = -1;
+	pTAS2557->mnRCurrentBook = -1;
+	pTAS2557->mnRCurrentPage = -1;
+}
+
 static void irq_work_routine(struct work_struct *work)
 {
 	int nResult = 0;
@@ -590,11 +607,17 @@ static void irq_work_routine(struct work_struct *work)
 	else
 		nResult = tas2557_dev_read(pTAS2557, channel_left, TAS2557_FLAGS_2, &nDevLInt2Status);
 
+	if (nResult < 0)
+		goto program;
+
 	nResult = tas2557_dev_read(pTAS2557, channel_right, TAS2557_FLAGS_1, &nDevRInt1Status);
 	if (nResult < 0)
 		dev_err(pTAS2557->dev, "right channel I2C doesn't work\n");
 	else
 		nResult = tas2557_dev_read(pTAS2557, channel_right, TAS2557_FLAGS_2, &nDevRInt2Status);
+
+	if (nResult < 0)
+		goto program;
 
 	if (((nDevLInt1Status & 0xdc) != 0) || ((nDevLInt2Status & 0x0c) != 0)
 		|| ((nDevRInt1Status & 0xdc) != 0) || ((nDevRInt2Status & 0x0c) != 0)) {
@@ -602,24 +625,33 @@ static void irq_work_routine(struct work_struct *work)
 		dev_err(pTAS2557->dev, "critical error L: 0x%x, 0x%x; R: 0x%x, 0x%x\n",
 			nDevLInt1Status, nDevLInt2Status, nDevRInt1Status, nDevRInt2Status);
 		goto program;
-	} else
+	} else {
+		tas2557_dev_read(pTAS2557, channel_left, TAS2557_POWER_UP_FLAG_REG, &nDevLInt1Status);
+		if ((nDevLInt1Status & 0x40) == 0) {
+			/* Class-D doesn't power on */
+			tas2557_dev_read(pTAS2557, channel_left, TAS2557_POWER_CTRL2_REG, &nDevLInt2Status);
+			if (nDevLInt2Status & 0x80) {
+				/* failed to power on the Class-D */
+				goto program;
+			}
+		}
+		tas2557_dev_read(pTAS2557, channel_right, TAS2557_POWER_UP_FLAG_REG, &nDevRInt1Status);
+		if ((nDevRInt1Status & 0x40) == 0) {
+			/* Class-D doesn't power on */
+			tas2557_dev_read(pTAS2557, channel_right, TAS2557_POWER_CTRL2_REG, &nDevRInt2Status);
+			if (nDevRInt2Status & 0x80) {
+				/* failed to power on the Class-D */
+				goto program;
+			}
+		}
 		dev_dbg(pTAS2557->dev, "%s, L: 0x%x, 0x%x; R: 0x%x, 0x%x\n",
 			__func__, nDevLInt1Status, nDevLInt2Status, nDevRInt1Status, nDevRInt2Status);
-
+	}
 	return;
 
 program:
 	/* hardware reset and reload */
-	if (gpio_is_valid(pTAS2557->mnResetGPIO)) {
-#ifdef HW_RESET/* mandatory */
-		devm_gpio_request_one(&pClient->dev, pTAS2557->mnResetGPIO,
-			GPIOF_OUT_INIT_LOW, "TAS2557_RST");
-		msleep(5);
-		gpio_set_value_cansleep(pTAS2557->mnResetGPIO, 1);
-		msleep(1);
-#endif
-	}
-
+	tas2557_hw_reset(pTAS2557);
 	tas2557_set_program(pTAS2557, pTAS2557->mnCurrentProgram, pTAS2557->mnCurrentConfiguration);
 }
 
@@ -687,20 +719,7 @@ static int tas2557_i2c_probe(struct i2c_client *pClient,
 	if (pClient->dev.of_node)
 		tas2557_parse_dt(&pClient->dev, pTAS2557);
 
-	if (gpio_is_valid(pTAS2557->mnResetGPIO)) {
-#ifdef HW_RESET	/* mandatory */
-		devm_gpio_request_one(&pClient->dev, pTAS2557->mnResetGPIO,
-			GPIOF_OUT_INIT_LOW, "TAS2557_RST");
-		msleep(5);
-		gpio_set_value_cansleep(pTAS2557->mnResetGPIO, 1);
-		msleep(1);
-#endif
-	} else {
-		pTAS2557->mnLCurrentBook = -1;
-		pTAS2557->mnLCurrentPage = -1;
-		pTAS2557->mnRCurrentBook = -1;
-		pTAS2557->mnRCurrentPage = -1;
-	}
+	tas2557_hw_reset(pTAS2557);
 
 	pTAS2557->read = tas2557_dev_read;
 	pTAS2557->write = tas2557_dev_write;
@@ -710,6 +729,7 @@ static int tas2557_i2c_probe(struct i2c_client *pClient,
 	pTAS2557->enableIRQ = tas2557_enableIRQ;
 	pTAS2557->set_config = tas2557_set_config;
 	pTAS2557->set_calibration = tas2557_set_calibration;
+	pTAS2557->hw_reset = tas2557_hw_reset;
 
 	mutex_init(&pTAS2557->dev_lock);
 

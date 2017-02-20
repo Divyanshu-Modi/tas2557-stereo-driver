@@ -82,6 +82,7 @@
 #define TAS2557_POWER_UP_FLAG_REG		TAS2557_REG(0, 0, 100)
 #define TAS2557_FLAGS_1				TAS2557_REG(0, 0, 104)	/* B0_P0_R0x68*/
 #define TAS2557_FLAGS_2				TAS2557_REG(0, 0, 108)	/* B0_P0_R0x6c*/
+
 /* Book0, Page1 registers */
 #define TAS2557_ASI1_DAC_FORMAT_REG		TAS2557_REG(0, 1, 1)
 #define TAS2557_ASI1_ADC_FORMAT_REG		TAS2557_REG(0, 1, 2)
@@ -434,6 +435,7 @@ struct tas2557_priv {
 	int (*set_calibration)(struct tas2557_priv *pTAS2557,
 		int calibration);
 	int (*enableIRQ)(struct tas2557_priv *pTAS2557, bool enable, bool clear);
+	void (*hw_reset)(struct tas2557_priv *pTAS2557);
 
 	int mnLeftChlGpioINT;
 	int mnRightChlGpioINT;
