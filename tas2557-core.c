@@ -84,7 +84,7 @@ static unsigned int p_tas2557_irq_config[] = {
 };
 
 static unsigned int p_tas2557_startup_data[] = {
-	channel_both, TAS2557_CLK_ERR_CTRL, 0x03,	 /* enable clock error detection */
+	channel_both, TAS2557_CLK_ERR_CTRL, 0x00,	 /* enable clock error detection */
 	channel_both, TAS2557_POWER_CTRL2_REG, 0xA0,	 /* Class-D, Boost power up */
 	channel_both, TAS2557_POWER_CTRL2_REG, 0xA3,	 /* Class-D, Boost, IV sense power up */
 	channel_both, TAS2557_POWER_CTRL1_REG, 0xF8,	 /* PLL, DSP, clock dividers power up */
