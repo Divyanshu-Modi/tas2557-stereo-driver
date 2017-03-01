@@ -524,17 +524,20 @@ static int tas2557_rom_chl_dev_get(struct snd_kcontrol *pKcontrol,
 	int nChlDev = 0;
 
 	switch (pTAS2557->mnROMChlDev) {
-		case channel_left:
+	case channel_left:
 		nChlDev = 0;
-		break;
-		case channel_right:
+	break;
+
+	case channel_right:
 		nChlDev = 1;
-		break;
-		case channel_both:
+	break;
+
+	case channel_both:
 		nChlDev = 2;
-		break;
-		default:
-		break;
+	break;
+
+	default:
+	break;
 	}
 
 	pValue->value.integer.value[0] = nChlDev;
@@ -554,15 +557,17 @@ static int tas2557_rom_chl_dev_put(struct snd_kcontrol *pKcontrol,
 	enum channel chl = channel_left;
 
 	switch (nChlDev) {
-		case 0:
+	case 0:
 		chl = channel_left;
-		break;
-		case 1:
+	break;
+
+	case 1:
 		chl = channel_right;
-		break;
-		case 2:
+	break;
+
+	case 2:
 		chl = channel_both;
-		break;
+	break;
 	}
 
 	pTAS2557->mnROMChlDev = chl;

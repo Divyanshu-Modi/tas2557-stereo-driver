@@ -75,14 +75,14 @@ static int tas2557_load_configuration(struct tas2557_priv *pTAS2557,
 
 static unsigned int p_tas2557_default_data[] = {
 	channel_both, TAS2557_SAR_ADC2_REG, 0x05,	/* enable SAR ADC */
-//TODO channel_both, TAS2555_CLK_ERR_CTRL2, 0x39,	//enable clock error detection on PLL
-//TODO channel_both, TAS2555_CLK_ERR_CTRL3, 0x11,	//enable clock error detection on PLL
-	channel_both, TAS2557_SAFE_GUARD_REG, TAS2557_SAFE_GUARD_PATTERN,	//safe guard
+/*TODO channel_both, TAS2555_CLK_ERR_CTRL2, 0x39,	enable clock error detection on PLL */
+/*TODO channel_both, TAS2555_CLK_ERR_CTRL3, 0x11,	enable clock error detection on PLL */
+	channel_both, TAS2557_SAFE_GUARD_REG, TAS2557_SAFE_GUARD_PATTERN,	/* safe guard */
 	0xFFFFFFFF, 0xFFFFFFFF
 };
 
 static unsigned int p_tas2557_irq_config[] = {
-//	channel_both, TAS2555_CLK_HALT_REG, 0x71,	/* TODO */
+/*	channel_both, TAS2555_CLK_HALT_REG, 0x71,	 TODO */
 	channel_both, TAS2557_INT_GEN1_REG, 0x11,	/* enable spk OC and OV */
 	channel_both, TAS2557_INT_GEN2_REG, 0x11,	/* enable clk err1 and die OT */
 	channel_both, TAS2557_INT_GEN3_REG, 0x11,	/* enable clk err2 and brownout */
@@ -101,7 +101,7 @@ static unsigned int p_tas2557_startup_data[] = {
 	channel_both, TAS2557_POWER_CTRL2_REG, 0xA3,	 /* Class-D, Boost, IV sense power up */
 	channel_both, TAS2557_POWER_CTRL1_REG, 0xF8,	 /* PLL, DSP, clock dividers power up */
 	channel_both, TAS2557_UDELAY, 2000,		 /* delay */
-//	channel_both, TAS2557_CLK_ERR_CTRL, 0x03,	 /* TODO */ /* enable clock error detection */
+/*	channel_both, TAS2557_CLK_ERR_CTRL, 0x03,	 TODO  enable clock error detection */
 	0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF
 };
 
@@ -448,7 +448,7 @@ end:
 
 /*
 * die temperature calculation:
-* 	DieTemp = readout / 2^23
+* DieTemp = readout / 2^23
 */
 int tas2557_get_die_temperature(struct tas2557_priv *pTAS2557, int *pTemperature)
 {
@@ -985,7 +985,7 @@ int fw_parse_calibration_data(struct tas2557_priv *pTAS2557,
 	pFirmware->mnCalibrations = (pData[0] << 8) + pData[1];
 	pData += 2;
 
-	if(pFirmware->mnCalibrations == 0)
+	if (pFirmware->mnCalibrations == 0)
 		goto end;
 
 	pFirmware->mpCalibrations =
@@ -1891,7 +1891,7 @@ static int tas2557_load_calibration(struct tas2557_priv *pTAS2557,	char *pFileNa
 /*
 *	int nFile;
 *	mm_segment_t fs;
-*	unsigned char pBuffer[2048];
+*	unsigned char pBuffer[1000];
 *	int nSize = 0;
 *
 *	dev_dbg(pTAS2557->dev, "%s:\n", __func__);
@@ -1904,7 +1904,7 @@ static int tas2557_load_calibration(struct tas2557_priv *pTAS2557,	char *pFileNa
 *		pFileName, nFile);
 *
 *	if (nFile >= 0) {
-*		nSize = sys_read(nFile, pBuffer, 512);
+*		nSize = sys_read(nFile, pBuffer, 1000);
 *		sys_close(nFile);
 *	} else {
 *		dev_err(pTAS2557->dev, "TAS2557 cannot open calibration file: %s\n",
@@ -1914,20 +1914,20 @@ static int tas2557_load_calibration(struct tas2557_priv *pTAS2557,	char *pFileNa
 *	set_fs(fs);
 *
 *	if (!nSize)
-*		return;
+*		goto end;
 *
 *	tas2557_clear_firmware(pTAS2557->mpCalFirmware);
 *	dev_info(pTAS2557->dev, "TAS2557 calibration file size = %d\n", nSize);
 *	nResult = fw_parse(pTAS2557, pTAS2557->mpCalFirmware, pBuffer, nSize);
 *
-*	if (nResult) {
+*	if (nResult)
 *		dev_err(pTAS2557->dev, "TAS2557 calibration file is corrupt\n");
-*		return;
-*	}
+*	else
+*		dev_info(pTAS2557->dev, "TAS2557 calibration: %d calibrations\n",
+*			pTAS2557->mpCalFirmware->mnCalibrations);
 *
-*	dev_info(pTAS2557->dev, "TAS2557 calibration: %d calibrations\n",
-*		pTAS2557->mpCalFirmware->mnCalibrations);
-*/
+*end:
+**/
 	return nResult;
 }
 
