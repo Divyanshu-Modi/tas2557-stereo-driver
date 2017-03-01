@@ -665,6 +665,33 @@ static irqreturn_t tas2557_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static enum hrtimer_restart temperature_timer_func(struct hrtimer *timer)
+{
+	struct tas2557_priv *pTAS2557 = container_of(timer, struct tas2557_priv, mtimer);
+
+	if (pTAS2557->mbPowerUp)
+		schedule_work(&pTAS2557->mtimerwork);
+	return HRTIMER_NORESTART;
+}
+
+static void timer_work_routine(struct work_struct *work)
+{
+	struct tas2557_priv *pTAS2557 = container_of(work, struct tas2557_priv, mtimerwork);
+	int nResult, nTemp;
+
+	if (!pTAS2557->mbPowerUp)
+		return;
+
+	nResult = tas2557_get_die_temperature(pTAS2557, &nTemp);
+	if (nResult >= 0) {
+		dev_dbg(pTAS2557->dev, "Die=0x%x\n", nTemp);
+
+		if (pTAS2557->mbPowerUp)
+			hrtimer_start(&pTAS2557->mtimer,
+				ns_to_ktime((u64)LOW_TEMPERATURE_CHECK_PERIOD * NSEC_PER_MSEC), HRTIMER_MODE_REL);
+	}
+}
+
 static bool tas2557_volatile(struct device *pDev, unsigned int nRegister)
 {
 	return true;
@@ -743,10 +770,15 @@ static int tas2557_i2c_probe(struct i2c_client *pClient,
 	msleep(1);
 	tas2557_dev_read(pTAS2557, channel_left, TAS2557_REV_PGID_REG, &nValue);
 	pTAS2557->mnLPGID = nValue;
-	dev_info(&pClient->dev, "Left Chn, PGID=0x%x\n", nValue);
 	tas2557_dev_read(pTAS2557, channel_right, TAS2557_REV_PGID_REG, &nValue);
 	pTAS2557->mnRPGID = nValue;
-	dev_info(&pClient->dev, "Right Chn, PGID=0x%x\n", nValue);
+	if (pTAS2557->mnLPGID != pTAS2557->mnRPGID) {
+		dev_err(pTAS2557->dev, "HardWare Critical: L-PGID=0x%x, R-PGID=0x%x, please use same version\n",
+			pTAS2557->mnLPGID, pTAS2557->mnRPGID);
+		nResult = -ENOTSUPP;
+		goto err;
+	} else
+		dev_info(pTAS2557->dev, "PGID = 0x%x\n", pTAS2557->mnLPGID);
 
 	if (gpio_is_valid(pTAS2557->mnLeftChlGpioINT)) {
 		nResult = gpio_request(pTAS2557->mnLeftChlGpioINT, "TAS2557-LeftCHL-IRQ");
@@ -768,6 +800,7 @@ static int tas2557_i2c_probe(struct i2c_client *pClient,
 				"request_irq failed, %d\n", nResult);
 			goto err;
 		}
+		disable_irq_nosync(pTAS2557->mnLeftChlIRQ);
 	}
 
 	if (gpio_is_valid(pTAS2557->mnRightChlGpioINT)) {
@@ -791,6 +824,7 @@ static int tas2557_i2c_probe(struct i2c_client *pClient,
 					"request_irq failed, %d\n", nResult);
 				goto err;
 			}
+			disable_irq_nosync(pTAS2557->mnRightChlIRQ);
 		}
 	}
 
@@ -823,6 +857,10 @@ static int tas2557_i2c_probe(struct i2c_client *pClient,
 #ifdef ENABLE_TILOAD
 	tiload_driver_init(pTAS2557);
 #endif
+
+	hrtimer_init(&pTAS2557->mtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	pTAS2557->mtimer.function = temperature_timer_func;
+	INIT_WORK(&pTAS2557->mtimerwork, timer_work_routine);
 
 	nResult = request_firmware_nowait(THIS_MODULE, 1, TAS2557_FW_NAME,
 		pTAS2557->dev, GFP_KERNEL, pTAS2557, tas2557_fw_ready);
