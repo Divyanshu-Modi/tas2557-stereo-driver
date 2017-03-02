@@ -54,6 +54,7 @@
 #include "tiload.h"
 #endif
 
+#define LOW_TEMPERATURE_GAIN 6
 /*
 * tas2557_i2c_write_device : write single byte to device
 * platform dependent, need platform specific support
@@ -685,6 +686,22 @@ static void timer_work_routine(struct work_struct *work)
 	nResult = tas2557_get_die_temperature(pTAS2557, &nTemp);
 	if (nResult >= 0) {
 		dev_dbg(pTAS2557->dev, "Die=0x%x\n", nTemp);
+
+		if ((nTemp & 0x80000000) != 0) {
+			/* if Die temperature is below ZERO */
+			if (pTAS2557->mnDevCurrentGain != LOW_TEMPERATURE_GAIN) {
+				tas2557_set_DAC_gain(pTAS2557, channel_both, LOW_TEMPERATURE_GAIN);
+				pTAS2557->mnDevCurrentGain = LOW_TEMPERATURE_GAIN;
+				dev_info(pTAS2557->dev, "LOW Temp: set gain to %d\n", LOW_TEMPERATURE_GAIN);
+			}
+		} else {
+			/* if Die temperature is above ZERO */
+			if (pTAS2557->mnDevCurrentGain != pTAS2557->mnDevGain) {
+				tas2557_set_DAC_gain(pTAS2557, channel_both, pTAS2557->mnDevGain);
+				pTAS2557->mnDevCurrentGain = pTAS2557->mnDevGain;
+				dev_info(pTAS2557->dev, "LOW Temp: set gain to original\n");
+			}
+		}
 
 		if (pTAS2557->mbPowerUp)
 			hrtimer_start(&pTAS2557->mtimer,

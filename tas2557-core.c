@@ -233,11 +233,9 @@ int tas2557_configIRQ(struct tas2557_priv *pTAS2557)
 
 int tas2557_SA_SwapChannel(struct tas2557_priv *pTAS2557, bool swap)
 {
-	int ret = 0;
+	int nResult = 0;
 	struct TProgram *pProgram;
-	unsigned char buf_a[8], buf_b[8];
-	unsigned char push[4] = {0, 0, 0, 1};
-	int nReg;
+	unsigned char buf_a[16], buf_b[16];
 
 	if ((pTAS2557->mpFirmware->mnPrograms == 0)
 		|| (pTAS2557->mpFirmware->mnConfigurations == 0)) {
@@ -251,39 +249,49 @@ int tas2557_SA_SwapChannel(struct tas2557_priv *pTAS2557, bool swap)
 		goto end;
 	}
 
-	if (pTAS2557->mnLPGID == TAS2557_PG_VERSION_2P1)
-		nReg = TAS2557_SA_PG2P1_CHL_CTRL_REG;
-	else
-		nReg = TAS2557_SA_PG1P0_CHL_CTRL_REG;
+/*
+* for PG2.1
+* for left channel, data[16] =
+* {0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+*  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+*
+* for right channel, data[16] =
+* {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+*  0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+*
+* for (left+right)/2 , data[16] =
+* {0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+*  0x20, 0x00, 0x00, 0x00,0x00, 0x00, 0x00, 0x00};
+*/
 
-	/* for left channel, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 */
-	/* for right channel, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00 */
-	/* for (left+right)/2 , 0x20, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00 */
+	if (pTAS2557->mnLPGID != TAS2557_PG_VERSION_2P1) {
+		dev_err(pTAS2557->dev, "%s, currently we only support PG2.1\n", __func__);
+		goto end;
+	}
+
 	if (swap != pTAS2557->mnChannelSwap) {
 		/* get current configuration */
-		ret = pTAS2557->bulk_read(pTAS2557, channel_left, nReg, buf_a, 8);
-		if (ret < 0) {
+		nResult = pTAS2557->bulk_read(pTAS2557, channel_left, TAS2557_SA_PG2P1_CHL_CTRL_REG, buf_a, 16);
+		if (nResult < 0) {
 			dev_err(pTAS2557->dev, "%s, left I2C error\n", __func__);
 			goto end;
 		}
 
-		pTAS2557->bulk_read(pTAS2557, channel_right, nReg, buf_b, 8);
-		if (ret < 0) {
+		nResult = pTAS2557->bulk_read(pTAS2557, channel_right, TAS2557_SA_PG2P1_CHL_CTRL_REG, buf_b, 16);
+		if (nResult < 0) {
 			dev_err(pTAS2557->dev, "%s, right I2C error\n", __func__);
 			goto end;
 		}
 
 		/* do channel swap */
-		pTAS2557->bulk_write(pTAS2557, channel_left, nReg, buf_b, 8);
-		pTAS2557->bulk_write(pTAS2557, channel_right, nReg, buf_a, 8);
-		/* push to DSP */
-		pTAS2557->bulk_write(pTAS2557, channel_both, TAS2557_SA_COEFF_SWAP_REG, push, 4);
+		pTAS2557->bulk_write(pTAS2557, channel_left, TAS2557_SA_PG2P1_CHL_CTRL_REG, buf_b, 16);
+		pTAS2557->bulk_write(pTAS2557, channel_right, TAS2557_SA_PG2P1_CHL_CTRL_REG, buf_a, 16);
 		pTAS2557->mnChannelSwap = swap;
 	}
 
 end:
 
-	return ret;
+	return nResult;
 }
 
 int tas2557_SA_ctl_echoRef(struct tas2557_priv *pTAS2557)
@@ -471,6 +479,7 @@ int tas2557_get_die_temperature(struct tas2557_priv *pTAS2557, int *pTemperature
 int tas2557_load_platdata(struct tas2557_priv *pTAS2557)
 {
 	int nResult = 0;
+	unsigned char nGain;
 
 	if (gpio_is_valid(pTAS2557->mnLeftChlGpioINT)
 		|| gpio_is_valid(pTAS2557->mnRightChlGpioINT)) {
@@ -485,6 +494,12 @@ int tas2557_load_platdata(struct tas2557_priv *pTAS2557)
 		goto end;
 
 	nResult = tas2557_SA_ctl_echoRef(pTAS2557);
+	if (nResult < 0)
+		goto end;
+
+	nResult = tas2557_get_DAC_gain(pTAS2557, channel_left, &nGain);
+	if (nResult >= 0)
+		pTAS2557->mnDevGain = nGain;
 
 end:
 

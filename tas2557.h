@@ -460,6 +460,8 @@ struct tas2557_priv {
 	unsigned int mnROMChlCtrl;
 
 	/* for low temperature check */
+	unsigned int mnDevGain;
+	unsigned int mnDevCurrentGain;
 	struct hrtimer mtimer;
 	struct work_struct mtimerwork;
 #ifdef CONFIG_TAS2557_MISC_STEREO
