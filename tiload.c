@@ -296,7 +296,7 @@ static long tiload_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 }
 
 #ifdef CONFIG_COMPAT
-static long tiload_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+static long tiload_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct tas2557_priv *pTAS2557 = (struct tas2557_priv *)filp->private_data;
 	long nResult = 0;
@@ -305,49 +305,49 @@ static long tiload_compat_ioctl(struct file *file, unsigned int cmd, unsigned lo
 	case TILOAD_COMPAT_IOMAGICNUM_GET:
 		dev_info(pTAS2557->dev, "%s, TILOAD_COMPAT_IOMAGICNUM_GET=0x%x\n",
 			__func__, cmd);
-		nResult = tiload_ioctl(file, TILOAD_IOMAGICNUM_GET,
+		nResult = tiload_ioctl(filp, TILOAD_IOMAGICNUM_GET,
 			(unsigned long) compat_ptr(arg));
 		break;
 
 	case TILOAD_COMPAT_IOMAGICNUM_SET:
 		dev_info(pTAS2557->dev, "%s, TILOAD_COMPAT_IOMAGICNUM_SET=0x%x\n",
 			__func__, cmd);
-		nResult = tiload_ioctl(file, TILOAD_IOMAGICNUM_SET,
+		nResult = tiload_ioctl(filp, TILOAD_IOMAGICNUM_SET,
 			(unsigned long) compat_ptr(arg));
 		break;
 
 	case TILOAD_COMPAT_BPR_READ:
 		dev_info(pTAS2557->dev, "%s, TILOAD_COMPAT_BPR_READ=0x%x\n",
 			__func__, cmd);
-		nResult = tiload_ioctl(file, TILOAD_BPR_READ,
+		nResult = tiload_ioctl(filp, TILOAD_BPR_READ,
 			(unsigned long) compat_ptr(arg));
 		break;
 
 	case TILOAD_COMPAT_BPR_WRITE:
 		dev_info(pTAS2557->dev, "%s, TILOAD_COMPAT_BPR_WRITE=0x%x\n",
 			__func__, cmd);
-		nResult = tiload_ioctl(file, TILOAD_BPR_WRITE,
+		nResult = tiload_ioctl(filp, TILOAD_BPR_WRITE,
 			(unsigned long) compat_ptr(arg));
 		break;
 
 	case TILOAD_COMPAT_IOCTL_SET_CHL:
 		dev_info(pTAS2557->dev, "%s, TILOAD_COMPAT_IOCTL_SET_CHL=0x%x\n",
 			__func__, cmd);
-		nResult = tiload_ioctl(file, TILOAD_IOCTL_SET_CHL,
+		nResult = tiload_ioctl(filp, TILOAD_IOCTL_SET_CHL,
 			(unsigned long) compat_ptr(arg));
 		break;
 
 	case TILOAD_COMPAT_IOCTL_SET_CONFIG:
 		dev_info(pTAS2557->dev, "%s, TILOAD_COMPAT_IOCTL_SET_CONFIG=0x%x\n",
 			__func__, cmd);
-		nResult = tiload_ioctl(file, TILOAD_IOCTL_SET_CONFIG,
+		nResult = tiload_ioctl(filp, TILOAD_IOCTL_SET_CONFIG,
 			(unsigned long) compat_ptr(arg));
 		break;
 
 	case TILOAD_COMPAT_IOCTL_SET_CALIBRATION:
 		dev_info(pTAS2557->dev, "%s, TILOAD_COMPAT_IOCTL_SET_CALIBRATION=0x%x\n",
 			__func__, cmd);
-		nResult = tiload_ioctl(file, TILOAD_IOCTL_SET_CALIBRATION,
+		nResult = tiload_ioctl(filp, TILOAD_IOCTL_SET_CALIBRATION,
 			(unsigned long) compat_ptr(arg));
 		break;
 
