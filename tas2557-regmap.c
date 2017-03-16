@@ -660,8 +660,6 @@ end:
 #ifdef CONFIG_TAS2557_CODEC_STEREO
 	mutex_unlock(&pTAS2557->codec_lock);
 #endif
-
-	return;
 }
 
 static irqreturn_t tas2557_irq_handler(int irq, void *dev_id)
@@ -703,7 +701,7 @@ static void timer_work_routine(struct work_struct *work)
 		goto end;
 	}
 
-	pProgram= &(pTAS2557->mpFirmware->mpPrograms[pTAS2557->mnCurrentProgram]);
+	pProgram = &(pTAS2557->mpFirmware->mpPrograms[pTAS2557->mnCurrentProgram]);
 	if (!pTAS2557->mbPowerUp
 		|| (pProgram->mnAppMode != TAS2557_APP_TUNINGMODE)) {
 		dev_info(pTAS2557->dev, "%s, pass, Pow=%d, program=%s\n",
@@ -758,8 +756,6 @@ end:
 #ifdef CONFIG_TAS2557_CODEC_STEREO
 	mutex_unlock(&pTAS2557->codec_lock);
 #endif
-
-	return;
 }
 
 #ifdef CONFIG_PM_SLEEP
