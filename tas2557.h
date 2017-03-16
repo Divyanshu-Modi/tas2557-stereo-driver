@@ -444,7 +444,8 @@ struct tas2557_priv {
 		int config);
 	int (*set_calibration)(struct tas2557_priv *pTAS2557,
 		int calibration);
-	int (*enableIRQ)(struct tas2557_priv *pTAS2557, bool enable, bool clear);
+	void (*clearIRQ)(struct tas2557_priv *pTAS2557);
+	void (*enableIRQ)(struct tas2557_priv *pTAS2557, bool enable);
 	void (*hw_reset)(struct tas2557_priv *pTAS2557);
 
 	int mnLeftChlGpioINT;
@@ -463,6 +464,10 @@ struct tas2557_priv {
 	unsigned int mnDieTvReadCounter;
 	struct hrtimer mtimer;
 	struct work_struct mtimerwork;
+
+#ifdef CONFIG_TAS2557_CODEC_STEREO
+	struct mutex codec_lock;
+#endif
 
 #ifdef CONFIG_TAS2557_MISC_STEREO
 	int mnDBGCmd;

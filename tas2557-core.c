@@ -477,7 +477,7 @@ static int tas2557_load_coefficient(struct tas2557_priv *pTAS2557,
 			hrtimer_cancel(&pTAS2557->mtimer);
 
 		if (pProgram->mnAppMode == TAS2557_APP_TUNINGMODE)
-			nResult = pTAS2557->enableIRQ(pTAS2557, false, true);
+			pTAS2557->enableIRQ(pTAS2557, false);
 
 		nResult = tas2557_dev_load_data(pTAS2557, p_tas2557_mute_DSP_down_data);
 		if (nResult < 0)
@@ -528,6 +528,7 @@ prog_coefficient:
 	}
 
 	if (bRestorePower) {
+		pTAS2557->clearIRQ(pTAS2557);
 		dev_dbg(pTAS2557->dev, "device powered up, load startup\n");
 		nResult = tas2557_dev_load_data(pTAS2557, p_tas2557_startup_data);
 		if (nResult < 0)
@@ -537,9 +538,8 @@ prog_coefficient:
 		nResult = tas2557_dev_load_data(pTAS2557, p_tas2557_unmute_data);
 		if (nResult < 0)
 			goto end;
-	
 		if (pProgram->mnAppMode == TAS2557_APP_TUNINGMODE) {
-			nResult = pTAS2557->enableIRQ(pTAS2557, true, false);
+			pTAS2557->enableIRQ(pTAS2557, true);
 			if (!hrtimer_active(&pTAS2557->mtimer)) {
 				pTAS2557->mnDieTvReadCounter = 0;
 				hrtimer_start(&pTAS2557->mtimer,
@@ -646,6 +646,7 @@ pllcheck:
 				}
 			}
 
+			pTAS2557->clearIRQ(pTAS2557);
 			/* power on device */
 			dev_dbg(pTAS2557->dev, "Enable: load startup sequence\n");
 			nResult = tas2557_dev_load_data(pTAS2557, p_tas2557_startup_data);
@@ -658,9 +659,7 @@ pllcheck:
 
 			if (pProgram->mnAppMode == TAS2557_APP_TUNINGMODE) {
 				/* turn on IRQ */
-				nResult = pTAS2557->enableIRQ(pTAS2557, true, true);
-				if (nResult < 0)
-					goto end;
+				pTAS2557->enableIRQ(pTAS2557, true);
 				if (!hrtimer_active(&pTAS2557->mtimer)) {
 					pTAS2557->mnDieTvReadCounter = 0;
 					hrtimer_start(&pTAS2557->mtimer,
@@ -677,7 +676,7 @@ pllcheck:
 			dev_dbg(pTAS2557->dev, "Enable: load shutdown sequence\n");
 			if (pProgram->mnAppMode == TAS2557_APP_TUNINGMODE) {
 				/* turn off IRQ */
-				nResult = pTAS2557->enableIRQ(pTAS2557, false, true);
+				pTAS2557->enableIRQ(pTAS2557, false);
 			}
 			nResult = tas2557_dev_load_data(pTAS2557, p_tas2557_shutdown_data);
 			if (nResult < 0)
@@ -1959,13 +1958,14 @@ int tas2557_set_program(struct tas2557_priv *pTAS2557, unsigned int nProgram, in
 			hrtimer_cancel(&pTAS2557->mtimer);
 
 		if (pProgram->mnAppMode == TAS2557_APP_TUNINGMODE)
-			nResult = pTAS2557->enableIRQ(pTAS2557, false, true);
+			pTAS2557->enableIRQ(pTAS2557, false);
 
 		nResult = tas2557_dev_load_data(pTAS2557, p_tas2557_mute_DSP_down_data);
 		if (nResult < 0)
 			goto end;
 	}
 
+	pTAS2557->hw_reset(pTAS2557);
 	nResult = pTAS2557->write(pTAS2557, channel_both, TAS2557_SW_RESET_REG, 0x01);
 	if (nResult < 0)
 		goto end;
@@ -1997,6 +1997,7 @@ int tas2557_set_program(struct tas2557_priv *pTAS2557, unsigned int nProgram, in
 		goto end;
 
 	if (pTAS2557->mbPowerUp) {
+		pTAS2557->clearIRQ(pTAS2557);
 		dev_dbg(pTAS2557->dev, "device powered up, load startup\n");
 		nResult = tas2557_dev_load_data(pTAS2557, p_tas2557_startup_data);
 		if (nResult < 0)
@@ -2008,7 +2009,7 @@ int tas2557_set_program(struct tas2557_priv *pTAS2557, unsigned int nProgram, in
 			goto end;
 
 		if (pProgram->mnAppMode == TAS2557_APP_TUNINGMODE) {
-			nResult = pTAS2557->enableIRQ(pTAS2557, true, false);
+			pTAS2557->enableIRQ(pTAS2557, true);
 			if (!hrtimer_active(&pTAS2557->mtimer)) {
 				pTAS2557->mnDieTvReadCounter = 0;
 				hrtimer_start(&pTAS2557->mtimer,
