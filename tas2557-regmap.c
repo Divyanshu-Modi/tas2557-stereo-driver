@@ -55,6 +55,8 @@
 #endif
 
 #define LOW_TEMPERATURE_GAIN 6
+#define LOW_TEMPERATURE_COUNTER 12
+
 /*
 * tas2557_i2c_write_device : write single byte to device
 * platform dependent, need platform specific support
@@ -576,15 +578,22 @@ end:
 
 static void tas2557_hw_reset(struct tas2557_priv *pTAS2557)
 {
-#ifdef ENABLE_GPIO_RESET
+	int nResult = 0;
+
 	if (gpio_is_valid(pTAS2557->mnResetGPIO)) {
-		devm_gpio_request_one(pTAS2557->dev, pTAS2557->mnResetGPIO,
-			GPIOF_OUT_INIT_LOW, "TAS2557_RST");
-		msleep(10);
-		gpio_set_value_cansleep(pTAS2557->mnResetGPIO, 1);
-		udelay(1000);
+		nResult = gpio_request(pTAS2557->mnResetGPIO, "TAS2557-RESET");
+		if (nResult < 0) {
+			dev_err(pTAS2557->dev, "%s: GPIO %d request error\n",
+				__func__, pTAS2557->mnResetGPIO);
+			return;
+		}
+
+		gpio_direction_output(pTAS2557->mnResetGPIO, 0);
+		msleep(5);
+		gpio_direction_output(pTAS2557->mnResetGPIO, 1);
+		msleep(2);
 	}
-#endif
+
 	pTAS2557->mnLCurrentBook = -1;
 	pTAS2557->mnLCurrentPage = -1;
 	pTAS2557->mnRCurrentBook = -1;
@@ -678,36 +687,99 @@ static enum hrtimer_restart temperature_timer_func(struct hrtimer *timer)
 static void timer_work_routine(struct work_struct *work)
 {
 	struct tas2557_priv *pTAS2557 = container_of(work, struct tas2557_priv, mtimerwork);
-	int nResult, nTemp;
+	int nResult, nTemp, nActTemp;
+	static int nAvg;
 
 	if (!pTAS2557->mbPowerUp)
-		return;
+		goto end;
 
 	nResult = tas2557_get_die_temperature(pTAS2557, &nTemp);
 	if (nResult >= 0) {
-		dev_dbg(pTAS2557->dev, "Die=0x%x\n", nTemp);
-
-		if ((nTemp & 0x80000000) != 0) {
-			/* if Die temperature is below ZERO */
-			if (pTAS2557->mnDevCurrentGain != LOW_TEMPERATURE_GAIN) {
-				tas2557_set_DAC_gain(pTAS2557, channel_both, LOW_TEMPERATURE_GAIN);
-				pTAS2557->mnDevCurrentGain = LOW_TEMPERATURE_GAIN;
-				dev_info(pTAS2557->dev, "LOW Temp: set gain to %d\n", LOW_TEMPERATURE_GAIN);
+		nActTemp = (int)(nTemp >> 23);
+		dev_dbg(pTAS2557->dev, "Die=0x%x, degree=%d\n", nTemp, nActTemp);
+		if (!pTAS2557->mnDieTvReadCounter)
+			nAvg = 0;
+		pTAS2557->mnDieTvReadCounter++;
+		nAvg += nActTemp;
+		if (!(pTAS2557->mnDieTvReadCounter % LOW_TEMPERATURE_COUNTER)) {
+			nAvg /= LOW_TEMPERATURE_COUNTER;
+			dev_dbg(pTAS2557->dev, "check : avg=%d\n", nAvg);
+			if ((nAvg & 0x80000000) != 0) {
+				/* if Die temperature is below ZERO */
+				if (pTAS2557->mnDevCurrentGain != LOW_TEMPERATURE_GAIN) {
+					nResult = tas2557_set_DAC_gain(pTAS2557, channel_both, LOW_TEMPERATURE_GAIN);
+					if (nResult < 0)
+						goto end;
+					pTAS2557->mnDevCurrentGain = LOW_TEMPERATURE_GAIN;
+					dev_dbg(pTAS2557->dev, "LOW Temp: set gain to %d\n", LOW_TEMPERATURE_GAIN);
+				}
+			} else if (nAvg > 5) {
+				/* if Die temperature is above 5 degree C */
+				if (pTAS2557->mnDevCurrentGain != pTAS2557->mnDevGain) {
+					nResult = tas2557_set_DAC_gain(pTAS2557, channel_both, pTAS2557->mnDevGain);
+					if (nResult < 0)
+						goto end;
+					pTAS2557->mnDevCurrentGain = pTAS2557->mnDevGain;
+					dev_dbg(pTAS2557->dev, "LOW Temp: set gain to original\n");
+				}
 			}
-		} else {
-			/* if Die temperature is above ZERO */
-			if (pTAS2557->mnDevCurrentGain != pTAS2557->mnDevGain) {
-				tas2557_set_DAC_gain(pTAS2557, channel_both, pTAS2557->mnDevGain);
-				pTAS2557->mnDevCurrentGain = pTAS2557->mnDevGain;
-				dev_info(pTAS2557->dev, "LOW Temp: set gain to original\n");
-			}
+			nAvg = 0;
 		}
 
 		if (pTAS2557->mbPowerUp)
 			hrtimer_start(&pTAS2557->mtimer,
 				ns_to_ktime((u64)LOW_TEMPERATURE_CHECK_PERIOD * NSEC_PER_MSEC), HRTIMER_MODE_REL);
 	}
+
+end:
+	return;
 }
+
+#ifdef CONFIG_PM_SLEEP
+static int tas2557_suspend(struct device *dev)
+{
+	struct tas2557_priv *pTAS2557 = dev_get_drvdata(dev);
+
+	dev_dbg(pTAS2557->dev, "%s\n", __func__);
+	if (hrtimer_active(&pTAS2557->mtimer)) {
+		dev_dbg(pTAS2557->dev, "cancel die temp timer\n");
+		hrtimer_cancel(&pTAS2557->mtimer);
+	}
+
+	return 0;
+}
+
+static int tas2557_resume(struct device *dev)
+{
+	struct tas2557_priv *pTAS2557 = dev_get_drvdata(dev);
+	struct TProgram *pProgram;
+
+	dev_dbg(pTAS2557->dev, "%s\n", __func__);
+	if (!pTAS2557->mpFirmware->mpPrograms) {
+		dev_dbg(pTAS2557->dev, "%s, firmware not loaded\n", __func__);
+		goto end;
+	}
+
+	if (pTAS2557->mnCurrentProgram >= pTAS2557->mpCalFirmware->mnPrograms) {
+		dev_err(pTAS2557->dev, "%s, firmware corrupted\n", __func__);
+		goto end;
+	}
+
+	pProgram = &(pTAS2557->mpFirmware->mpPrograms[pTAS2557->mnCurrentProgram]);
+	if (pTAS2557->mbPowerUp && (pProgram->mnAppMode == TAS2557_APP_TUNINGMODE)) {
+		if (!hrtimer_active(&pTAS2557->mtimer)) {
+			dev_dbg(pTAS2557->dev, "%s, start Die Temp check timer\n", __func__);
+			pTAS2557->mnDieTvReadCounter = 0;
+			hrtimer_start(&pTAS2557->mtimer,
+				ns_to_ktime((u64)LOW_TEMPERATURE_CHECK_PERIOD * NSEC_PER_MSEC), HRTIMER_MODE_REL);
+		}
+	}
+
+end:
+
+	return 0;
+}
+#endif
 
 static bool tas2557_volatile(struct device *pDev, unsigned int nRegister)
 {
@@ -922,10 +994,19 @@ static const struct of_device_id tas2557_of_match[] = {
 MODULE_DEVICE_TABLE(of, tas2557_of_match);
 #endif
 
+#ifdef CONFIG_PM_SLEEP
+static const struct dev_pm_ops tas2557_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(tas2557_suspend, tas2557_resume)
+};
+#endif
+
 static struct i2c_driver tas2557_i2c_driver = {
 	.driver = {
 			.name = "tas2557s",
 			.owner = THIS_MODULE,
+#ifdef CONFIG_PM_SLEEP
+			.pm = &tas2557_pm_ops,
+#endif
 #if defined(CONFIG_OF)
 			.of_match_table = of_match_ptr(tas2557_of_match),
 #endif

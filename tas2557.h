@@ -402,6 +402,7 @@ struct tas2557_priv {
 	struct TFirmware *mpCalFirmware;
 	unsigned int mnCurrentProgram;
 	unsigned int mnCurrentSampleRate;
+	unsigned int mnNewConfiguration;
 	unsigned int mnCurrentConfiguration;
 	unsigned int mnCurrentCalibration;
 	enum channel mnCurrentChannel;
@@ -413,7 +414,7 @@ struct tas2557_priv {
 	unsigned char mnRCurrentPage;
 	bool mbTILoadActive;
 	bool mbPowerUp;
-	bool mbLoadConfigurationPostPowerUp;
+	bool mbLoadConfigurationPrePowerUp;
 	bool mbLoadCalibrationPostPowerUp;
 	bool mbCalibrationLoaded;
 	int (*read)(struct tas2557_priv *pTAS2557,
@@ -456,14 +457,13 @@ struct tas2557_priv {
 	unsigned char mnI2SBits;
 
 	bool mnChannelSwap;	/* 0, default; 1, swapped */
-	enum channel mnROMChlDev;
-	unsigned int mnROMChlCtrl;
-
 	/* for low temperature check */
 	unsigned int mnDevGain;
 	unsigned int mnDevCurrentGain;
+	unsigned int mnDieTvReadCounter;
 	struct hrtimer mtimer;
 	struct work_struct mtimerwork;
+
 #ifdef CONFIG_TAS2557_MISC_STEREO
 	int mnDBGCmd;
 	int mnCurrentReg;
