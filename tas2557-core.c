@@ -44,8 +44,6 @@
 #define PPC_DRIVER_VERSION			0x00000200
 #define TAS2557_CAL_NAME    "/data/tas2557_cal.bin"
 
-/* set default PLL CLKIN to GPI2 (MCLK) = 0x00 */
-#define TAS2557_DEFAULT_PLL_CLKIN 0x00
 
 static int tas2557_load_calibration(struct tas2557_priv *pTAS2557,
 	char *pFileName);
@@ -58,9 +56,6 @@ static int tas2557_load_configuration(struct tas2557_priv *pTAS2557,
 
 #define TAS2557_UDELAY 0xFFFFFFFE
 #define TAS2557_MDELAY 0xFFFFFFFD
-
-#define FW_ERR_HEADER -1
-#define FW_ERR_SIZE -2
 
 #define TAS2557_BLOCK_PLL				0x00
 #define TAS2557_BLOCK_PGM_ALL			0x0d
@@ -784,21 +779,29 @@ static int fw_parse_header(struct tas2557_priv *pTAS2557,
 
 	pFirmware->mnFWSize = fw_convert_number(pData);
 	pData += 4;
+
 	pFirmware->mnChecksum = fw_convert_number(pData);
 	pData += 4;
+
 	pFirmware->mnPPCVersion = fw_convert_number(pData);
 	pData += 4;
+
 	pFirmware->mnFWVersion = fw_convert_number(pData);
 	pData += 4;
+
 	pFirmware->mnDriverVersion = fw_convert_number(pData);
 	pData += 4;
+
 	pFirmware->mnTimeStamp = fw_convert_number(pData);
 	pData += 4;
+
 	memcpy(pFirmware->mpDDCName, pData, 64);
 	pData += 64;
+
 	n = strlen(pData);
 	pFirmware->mpDescription = kmemdup(pData, n + 1, GFP_KERNEL);
 	pData += n + 1;
+
 	if ((pData - pDataStart) >= nSize) {
 		dev_err(pTAS2557->dev, "Firmware: Header too short after DDC description");
 		return -EINVAL;
@@ -812,6 +815,7 @@ static int fw_parse_header(struct tas2557_priv *pTAS2557,
 			"deviceFamily %d, not TAS device", pFirmware->mnDeviceFamily);
 		return -EINVAL;
 	}
+
 	pFirmware->mnDevice = fw_convert_number(pData);
 	pData += 4;
 
@@ -820,6 +824,7 @@ static int fw_parse_header(struct tas2557_priv *pTAS2557,
 			"device %d, not TAS2557 Dual Mono", pFirmware->mnDevice);
 		return -EINVAL;
 	}
+
 	fw_print_header(pTAS2557, pFirmware);
 	return pData - pDataStart;
 }
@@ -872,8 +877,10 @@ static int fw_parse_data(struct tas2557_priv *pTAS2557, struct TFirmware *pFirmw
 	n = strlen(pData);
 	pImageData->mpDescription = kmemdup(pData, n + 1, GFP_KERNEL);
 	pData += n + 1;
+
 	pImageData->mnBlocks = (pData[0] << 8) + pData[1];
 	pData += 2;
+
 	pImageData->mpBlocks =
 		kmalloc(sizeof(struct TBlock) * pImageData->mnBlocks, GFP_KERNEL);
 
@@ -942,10 +949,13 @@ static int fw_parse_program_data(struct tas2557_priv *pTAS2557,
 		n = strlen(pData);
 		pProgram->mpDescription = kmemdup(pData, n + 1, GFP_KERNEL);
 		pData += n + 1;
+
 		pProgram->mnAppMode = pData[0];
 		pData++;
+
 		pProgram->mnBoost = (pData[0] << 8) + pData[1];
 		pData += 2;
+
 		n = fw_parse_data(pTAS2557, pFirmware, &(pProgram->mData), pData);
 		pData += n;
 	}
@@ -984,6 +994,7 @@ static int fw_parse_configuration_data(struct tas2557_priv *pTAS2557,
 
 		pConfiguration->mnProgram = pData[0];
 		pData++;
+
 		pConfiguration->mnPLL = pData[0];
 		pData++;
 
@@ -2029,6 +2040,7 @@ end:
 int tas2557_set_calibration(struct tas2557_priv *pTAS2557, int nCalibration)
 {
 	struct TCalibration *pCalibration = NULL;
+	struct TProgram *pProgram;
 	int nResult = 0;
 
 	if ((!pTAS2557->mpFirmware->mpPrograms)
@@ -2055,11 +2067,15 @@ int tas2557_set_calibration(struct tas2557_priv *pTAS2557, int nCalibration)
 
 	pTAS2557->mnCurrentCalibration = nCalibration;
 	pCalibration = &(pTAS2557->mpCalFirmware->mpCalibrations[nCalibration]);
-	dev_dbg(pTAS2557->dev, "Enable: load calibration\n");
-	nResult = tas2557_load_data(pTAS2557, &(pCalibration->mData), TAS2557_BLOCK_CFG_COEFF_DEV_A);
-	if (nResult < 0)
-		goto end;
-	nResult = tas2557_load_data(pTAS2557, &(pCalibration->mData), TAS2557_BLOCK_CFG_COEFF_DEV_B);
+	pProgram = &(pTAS2557->mpFirmware->mpPrograms[pTAS2557->mnCurrentProgram]);
+
+	if (pProgram->mnAppMode == TAS2557_APP_TUNINGMODE) {
+		dev_dbg(pTAS2557->dev, "Enable: load calibration\n");
+		nResult = tas2557_load_data(pTAS2557, &(pCalibration->mData), TAS2557_BLOCK_CFG_COEFF_DEV_A);
+		if (nResult < 0)
+			goto end;
+		nResult = tas2557_load_data(pTAS2557, &(pCalibration->mData), TAS2557_BLOCK_CFG_COEFF_DEV_B);
+	}
 
 end:
 	if (nResult < 0) {
@@ -2076,26 +2092,14 @@ int tas2557_parse_dt(struct device *dev, struct tas2557_priv *pTAS2557)
 	int rc = 0, ret = 0;
 	unsigned int value;
 
-	rc = of_property_read_u32(np, "ti,load", &pTAS2557->mnLoad);
-	if (rc) {
+	pTAS2557->mnResetGPIO = of_get_named_gpio(np, "ti,cdc-reset-gpio", 0);
+	if (pTAS2557->mnResetGPIO < 0) {
 		dev_err(pTAS2557->dev, "Looking up %s property in node %s failed %d\n",
-			"ti,load", np->full_name, rc);
+			"ti,cdc-reset-gpio", np->full_name,
+			pTAS2557->mnResetGPIO);
 		ret = -EINVAL;
-	} else {
-		dev_dbg(pTAS2557->dev, "ti,load=%d\n", pTAS2557->mnLoad);
-	}
-
-	if (ret >= 0) {
-		pTAS2557->mnResetGPIO = of_get_named_gpio(np, "ti,cdc-reset-gpio", 0);
-		if (pTAS2557->mnResetGPIO < 0) {
-			dev_err(pTAS2557->dev, "Looking up %s property in node %s failed %d\n",
-				"ti,cdc-reset-gpio", np->full_name,
-				pTAS2557->mnResetGPIO);
-			ret = -EINVAL;
-		} else {
+	} else
 			dev_dbg(pTAS2557->dev, "ti,cdc-reset-gpio=%d\n", pTAS2557->mnResetGPIO);
-		}
-	}
 
 	if (ret >= 0) {
 		pTAS2557->mnLeftChlGpioINT = of_get_named_gpio(np, "ti,irq-gpio-left", 0);
