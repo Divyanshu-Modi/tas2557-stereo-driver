@@ -80,6 +80,8 @@
 #define TAS2557_SAFE_GUARD_REG			TAS2557_REG(0, 0, 37)
 #define TAS2557_ASI_CTL1_REG			TAS2557_REG(0, 0, 42)
 #define TAS2557_CLK_ERR_CTRL			TAS2557_REG(0, 0, 44)
+#define TAS2557_CLK_ERR_CTRL2			TAS2557_REG(0, 0, 45)	/* B0_P0_R0x2d*/
+#define TAS2557_CLK_ERR_CTRL3			TAS2557_REG(0, 0, 46)	/* B0_P0_R0x2e*/
 #define TAS2557_DBOOST_CFG_REG			TAS2557_REG(0, 0, 52)
 #define TAS2557_POWER_UP_FLAG_REG		TAS2557_REG(0, 0, 100)
 #define TAS2557_FLAGS_1				TAS2557_REG(0, 0, 104)	/* B0_P0_R0x68*/
@@ -152,10 +154,9 @@
 #define TAS2557_ASIM_IFACE6_REG			TAS2557_REG(0, 1, 103)
 #define TAS2557_ASIM_IFACE7_REG			TAS2557_REG(0, 1, 104)
 #define TAS2557_ASIM_IFACE8_REG			TAS2557_REG(0, 1, 105)
-#define TAS2557_ASIM_IFACE9_REG			TAS2557_REG(0, 1, 106)
-
+#define TAS2557_CLK_HALT_REG			TAS2557_REG(0, 1, 106)	/* B0_P1_R0x6a */
 #define TAS2557_INT_GEN1_REG			TAS2557_REG(0, 1, 108)	/* B0_P1_R0x6c */
-#define TAS2557_INT_GEN2_REG			TAS2557_REG(0, 1, 109)
+#define TAS2557_INT_GEN2_REG			TAS2557_REG(0, 1, 109)	/* B0_P1_R0x6d */
 #define TAS2557_INT_GEN3_REG			TAS2557_REG(0, 1, 110)	/* B0_P1_R0x6e */
 #define TAS2557_INT_GEN4_REG			TAS2557_REG(0, 1, 111)	/* B0_P1_R0x6f */
 #define TAS2557_INT_MODE_REG			TAS2557_REG(0, 1, 114)	/* B0_P1_R0x72 */
@@ -301,6 +302,23 @@
 #define TAS2557_APP_ROM2MODE	1
 #define TAS2557_APP_TUNINGMODE	2
 
+#define	ERROR_NONE			0x00000000
+#define	ERROR_PLL_ABSENT	0x00000001
+#define	ERROR_DEVA_I2C_COMM	0x00000002
+#define	ERROR_DEVB_I2C_COMM	0x00000004
+#define	ERROR_PRAM_CRCCHK	0x00000008
+#define	ERROR_YRAM_CRCCHK	0x00000010
+#define	ERROR_CLK_DET2		0x00000020
+#define	ERROR_CLK_DET1		0x00000040
+#define	ERROR_CLK_LOST		0x00000080
+#define	ERROR_BROWNOUT		0x00000100
+#define	ERROR_DIE_OVERTEMP	0x00000200
+#define	ERROR_CLK_HALT		0x00000400
+#define	ERROR_UNDER_VOLTAGE	0x00000800
+#define	ERROR_OVER_CURRENT	0x00001000
+#define	ERROR_CLASSD_PWR	0x00002000
+#define	ERROR_FAILSAFE		0x40000000
+
 struct TBlock {
 	unsigned int mnType;
 	unsigned char mbPChkSumPresent;
@@ -335,6 +353,7 @@ struct TPLL {
 struct TConfiguration {
 	char mpName[64];
 	char *mpDescription;
+	unsigned int mnDevices;
 	unsigned int mnProgram;
 	unsigned int mnPLL;
 	unsigned int mnSamplingRate;
@@ -445,7 +464,8 @@ struct tas2557_priv {
 	int (*set_calibration)(struct tas2557_priv *pTAS2557,
 		int calibration);
 	void (*clearIRQ)(struct tas2557_priv *pTAS2557);
-	void (*enableIRQ)(struct tas2557_priv *pTAS2557, bool enable);
+	void (*enableIRQ)(struct tas2557_priv *pTAS2557,
+		enum channel chl, bool enable);
 	void (*hw_reset)(struct tas2557_priv *pTAS2557);
 
 	int mnLeftChlGpioINT;
@@ -465,6 +485,7 @@ struct tas2557_priv {
 	struct hrtimer mtimer;
 	struct work_struct mtimerwork;
 
+	unsigned int mnErrCode;
 #ifdef CONFIG_TAS2557_CODEC_STEREO
 	struct mutex codec_lock;
 #endif

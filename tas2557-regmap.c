@@ -71,12 +71,20 @@ static int tas2557_i2c_write_device(
 
 	pTAS2557->client->addr = addr;
 	ret = regmap_write(pTAS2557->mpRegmap, reg, value);
-	if (ret < 0)
-		dev_err(pTAS2557->dev, "%s[0x%x] Error %d\n",
-			__func__, addr, ret);
-	else
+	if (ret < 0) {
+		dev_err(pTAS2557->dev, "%s[0x%x] Error, Reg=0x%x, value=0x%x, ret =%d\n",
+			__func__, addr, reg, value, ret);
+		if (addr == pTAS2557->mnLAddr)
+			pTAS2557->mnErrCode |= ERROR_DEVA_I2C_COMM;
+		else if (addr == pTAS2557->mnRAddr)
+			pTAS2557->mnErrCode |= ERROR_DEVB_I2C_COMM;
+	} else {
 		ret = 1;
-
+		if (addr == pTAS2557->mnLAddr)
+			pTAS2557->mnErrCode &= ~ERROR_DEVA_I2C_COMM;
+		else if (addr == pTAS2557->mnRAddr)
+			pTAS2557->mnErrCode &= ~ERROR_DEVB_I2C_COMM;
+	}
 	return ret;
 }
 
@@ -95,11 +103,21 @@ static int tas2557_i2c_bulkwrite_device(
 
 	pTAS2557->client->addr = addr;
 	ret = regmap_bulk_write(pTAS2557->mpRegmap, reg, pBuf, len);
-	if (ret < 0)
+	if (ret < 0) {
 		dev_err(pTAS2557->dev, "%s[0x%x] Error %d\n",
 			__func__, addr, ret);
-	else
+		if (addr == pTAS2557->mnLAddr)
+			pTAS2557->mnErrCode |= ERROR_DEVA_I2C_COMM;
+		else if (addr == pTAS2557->mnRAddr)
+			pTAS2557->mnErrCode |= ERROR_DEVB_I2C_COMM;
+	} else {
+		if (addr == pTAS2557->mnLAddr)
+			pTAS2557->mnErrCode &= ~ERROR_DEVA_I2C_COMM;
+		else if (addr == pTAS2557->mnRAddr)
+			pTAS2557->mnErrCode &= ~ERROR_DEVB_I2C_COMM;
+
 		ret = len;
+	}
 
 	return ret;
 }
@@ -119,12 +137,20 @@ static int tas2557_i2c_read_device(
 
 	pTAS2557->client->addr = addr;
 	ret = regmap_read(pTAS2557->mpRegmap, reg, &val);
-	if (ret < 0)
+	if (ret < 0) {
 		dev_err(pTAS2557->dev, "%s[0x%x] Error %d\n",
 			__func__, addr, ret);
-	else {
+		if (addr == pTAS2557->mnLAddr)
+			pTAS2557->mnErrCode |= ERROR_DEVA_I2C_COMM;
+		else if (addr == pTAS2557->mnRAddr)
+			pTAS2557->mnErrCode |= ERROR_DEVB_I2C_COMM;
+	} else {
 		*p_value = (unsigned char)val;
 		ret = 1;
+		if (addr == pTAS2557->mnLAddr)
+			pTAS2557->mnErrCode &= ~ERROR_DEVA_I2C_COMM;
+		else if (addr == pTAS2557->mnRAddr)
+			pTAS2557->mnErrCode &= ~ERROR_DEVB_I2C_COMM;
 	}
 
 	return ret;
@@ -146,11 +172,20 @@ static int tas2557_i2c_bulkread_device(
 	pTAS2557->client->addr = addr;
 	ret = regmap_bulk_read(pTAS2557->mpRegmap, reg, p_value, len);
 
-	if (ret < 0)
+	if (ret < 0) {
 		dev_err(pTAS2557->dev, "%s[0x%x] Error %d\n",
 			__func__, addr, ret);
-	else
+		if (addr == pTAS2557->mnLAddr)
+			pTAS2557->mnErrCode |= ERROR_DEVA_I2C_COMM;
+		else if (addr == pTAS2557->mnRAddr)
+			pTAS2557->mnErrCode |= ERROR_DEVB_I2C_COMM;
+	} else {
 		ret = len;
+		if (addr == pTAS2557->mnLAddr)
+			pTAS2557->mnErrCode &= ~ERROR_DEVA_I2C_COMM;
+		else if (addr == pTAS2557->mnRAddr)
+			pTAS2557->mnErrCode &= ~ERROR_DEVB_I2C_COMM;
+	}
 
 	return ret;
 }
@@ -167,11 +202,20 @@ static int tas2557_i2c_update_bits(
 	pTAS2557->client->addr = addr;
 	ret = regmap_update_bits(pTAS2557->mpRegmap, reg, mask, value);
 
-	if (ret < 0)
+	if (ret < 0) {
 		dev_err(pTAS2557->dev, "%s[0x%x] Error %d\n",
 			__func__, addr, ret);
-	else
+		if (addr == pTAS2557->mnLAddr)
+			pTAS2557->mnErrCode |= ERROR_DEVA_I2C_COMM;
+		else if (addr == pTAS2557->mnRAddr)
+			pTAS2557->mnErrCode |= ERROR_DEVB_I2C_COMM;
+	} else {
 		ret = 1;
+		if (addr == pTAS2557->mnLAddr)
+			pTAS2557->mnErrCode &= ~ERROR_DEVA_I2C_COMM;
+		else if (addr == pTAS2557->mnRAddr)
+			pTAS2557->mnErrCode &= ~ERROR_DEVB_I2C_COMM;
+	}
 
 	return ret;
 }
@@ -351,7 +395,9 @@ static int tas2557_dev_write(
 
 		if (chn == channel_broadcast)
 			nResult = tas2557_i2c_write_device(pTAS2557, TAS2557_BROADCAST_ADDR, TAS2557_PAGE_REG(nRegister), nValue);
-	}
+	} else
+		dev_err(pTAS2557->dev, "%s, chl %d set book %d page %d error\n",
+			__func__, chn, TAS2557_BOOK_ID(nRegister), TAS2557_PAGE_ID(nRegister));
 
 	mutex_unlock(&pTAS2557->dev_lock);
 
@@ -538,24 +584,48 @@ void tas2557_clearIRQ(struct tas2557_priv *pTAS2557)
 		pTAS2557->read(pTAS2557, channel_right, TAS2557_FLAGS_2, &nValue);
 }
 
-void tas2557_enableIRQ(struct tas2557_priv *pTAS2557, bool enable)
+void tas2557_enableIRQ(struct tas2557_priv *pTAS2557, enum channel chl, bool enable)
 {
+	static bool bLeftChlEnable;
+	static bool bRightChlEnable;
+
 	if (enable) {
 		if (!pTAS2557->mbIRQEnable) {
-			if (pTAS2557->mnLeftChlIRQ != 0)
-				enable_irq(pTAS2557->mnLeftChlIRQ);
-			if ((pTAS2557->mnRightChlIRQ != 0)
-				&& (pTAS2557->mnRightChlIRQ != pTAS2557->mnLeftChlIRQ))
-				enable_irq(pTAS2557->mnRightChlIRQ);
+			if (chl & channel_left) {
+				if (pTAS2557->mnLeftChlIRQ != 0) {
+					enable_irq(pTAS2557->mnLeftChlIRQ);
+					bLeftChlEnable = true;
+				} else
+					bLeftChlEnable = false;
+			}
+
+			if (chl & channel_right) {
+				if (pTAS2557->mnRightChlIRQ != 0) {
+					if (pTAS2557->mnRightChlIRQ != pTAS2557->mnLeftChlIRQ) {
+						enable_irq(pTAS2557->mnRightChlIRQ);
+						bRightChlEnable = true;
+					} else if (!bLeftChlEnable) {
+						enable_irq(pTAS2557->mnRightChlIRQ);
+						bRightChlEnable = true;
+					}
+				}
+			}
 			pTAS2557->mbIRQEnable = true;
 		}
 	} else {
 		if (pTAS2557->mbIRQEnable) {
-			if (pTAS2557->mnLeftChlIRQ != 0)
-				disable_irq_nosync(pTAS2557->mnLeftChlIRQ);
-			if ((pTAS2557->mnRightChlIRQ != 0)
-				&& (pTAS2557->mnRightChlIRQ != pTAS2557->mnLeftChlIRQ))
-				disable_irq_nosync(pTAS2557->mnRightChlIRQ);
+			if (pTAS2557->mnLeftChlIRQ != 0) {
+				if (bLeftChlEnable) {
+					disable_irq_nosync(pTAS2557->mnLeftChlIRQ);
+					bLeftChlEnable = false;
+				}
+			}
+			if (pTAS2557->mnRightChlIRQ != 0) {
+				if (bRightChlEnable) {
+					disable_irq_nosync(pTAS2557->mnRightChlIRQ);
+					bRightChlEnable = false;
+				}
+			}
 			pTAS2557->mbIRQEnable = false;
 		}
 	}
@@ -574,11 +644,15 @@ static void tas2557_hw_reset(struct tas2557_priv *pTAS2557)
 	pTAS2557->mnLCurrentPage = -1;
 	pTAS2557->mnRCurrentBook = -1;
 	pTAS2557->mnRCurrentPage = -1;
+	if (pTAS2557->mnErrCode)
+		dev_info(pTAS2557->dev, "before reset, ErrCode=0x%x\n", pTAS2557->mnErrCode);
+	pTAS2557->mnErrCode = 0;
 }
 
 static void irq_work_routine(struct work_struct *work)
 {
 	int nResult = 0;
+	struct TConfiguration *pConfiguration;
 	unsigned int nDevLInt1Status = 0, nDevLInt2Status = 0;
 	unsigned int nDevRInt1Status = 0, nDevRInt2Status = 0;
 	struct tas2557_priv *pTAS2557 =
@@ -592,64 +666,179 @@ static void irq_work_routine(struct work_struct *work)
 	mutex_lock(&pTAS2557->file_lock);
 #endif
 
-	if (!pTAS2557->mbPowerUp)
-		goto end;
-
-	nResult = tas2557_dev_read(pTAS2557, channel_left, TAS2557_FLAGS_1, &nDevLInt1Status);
-	if (nResult < 0)
-		dev_err(pTAS2557->dev, "left channel I2C doesn't work\n");
-	else
-		nResult = tas2557_dev_read(pTAS2557, channel_left, TAS2557_FLAGS_2, &nDevLInt2Status);
-
-	if (nResult < 0)
-		goto program;
-
-	nResult = tas2557_dev_read(pTAS2557, channel_right, TAS2557_FLAGS_1, &nDevRInt1Status);
-	if (nResult < 0)
-		dev_err(pTAS2557->dev, "right channel I2C doesn't work\n");
-	else
-		nResult = tas2557_dev_read(pTAS2557, channel_right, TAS2557_FLAGS_2, &nDevRInt2Status);
-
-	if (nResult < 0)
-		goto program;
-
-	if (((nDevLInt1Status & 0xdc) != 0) || ((nDevLInt2Status & 0x0c) != 0)
-		|| ((nDevRInt1Status & 0xdc) != 0) || ((nDevRInt2Status & 0x0c) != 0)) {
-		/* in case of INT_OC, INT_UV, INT_OT, INT_BO, INT_CL, INT_CLK1, INT_CLK2 */
-		dev_err(pTAS2557->dev, "critical error L: 0x%x, 0x%x; R: 0x%x, 0x%x\n",
-			nDevLInt1Status, nDevLInt2Status, nDevRInt1Status, nDevRInt2Status);
-		goto program;
-	} else {
-		dev_dbg(pTAS2557->dev, "IRQ status L: 0x%x, 0x%x; R: 0x%x, 0x%x\n",
-			nDevLInt1Status, nDevLInt2Status, nDevRInt1Status, nDevRInt2Status);
-		tas2557_dev_read(pTAS2557, channel_left, TAS2557_POWER_UP_FLAG_REG, &nDevLInt1Status);
-		if ((nDevLInt1Status & 0x40) == 0) {
-			/* Class-D doesn't power on */
-			tas2557_dev_read(pTAS2557, channel_left, TAS2557_POWER_CTRL2_REG, &nDevLInt2Status);
-			if (nDevLInt2Status & 0x80) {
-				/* failed to power on the Class-D */
-				dev_err(pTAS2557->dev, "critical error L: Class-D doesn't power On\n");
-				goto program;
-			}
-		}
-		tas2557_dev_read(pTAS2557, channel_right, TAS2557_POWER_UP_FLAG_REG, &nDevRInt1Status);
-		if ((nDevRInt1Status & 0x40) == 0) {
-			/* Class-D doesn't power on */
-			tas2557_dev_read(pTAS2557, channel_right, TAS2557_POWER_CTRL2_REG, &nDevRInt2Status);
-			if (nDevRInt2Status & 0x80) {
-				/* failed to power on the Class-D */
-				dev_err(pTAS2557->dev, "critical error R: Class-D doesn't power On\n");
-				goto program;
-			}
-		}
-		dev_dbg(pTAS2557->dev, "%s, L: 0x%x, 0x%x; R: 0x%x, 0x%x\n",
-			__func__, nDevLInt1Status, nDevLInt2Status, nDevRInt1Status, nDevRInt2Status);
+	if (!pTAS2557->mbPowerUp) {
+		dev_info(pTAS2557->dev, "%s, device not powered\n", __func__);
 		goto end;
 	}
 
+	if ((!pTAS2557->mpFirmware->mnConfigurations)
+		|| (!pTAS2557->mpFirmware->mnPrograms)) {
+		dev_info(pTAS2557->dev, "%s, firmware not loaded\n", __func__);
+		goto end;
+	}
+
+	pConfiguration = &(pTAS2557->mpFirmware->mpConfigurations[pTAS2557->mnCurrentConfiguration]);
+	if (pConfiguration->mnDevices & channel_left) {
+		nResult = tas2557_dev_read(pTAS2557, channel_left, TAS2557_FLAGS_1, &nDevLInt1Status);
+		if (nResult >= 0)
+			nResult = tas2557_dev_read(pTAS2557, channel_left, TAS2557_FLAGS_2, &nDevLInt2Status);
+		else
+			goto program;
+
+		if (((nDevLInt1Status & 0xfc) != 0) || ((nDevLInt2Status & 0x0c) != 0)) {
+			/* in case of INT_OC, INT_UV, INT_OT, INT_BO, INT_CL, INT_CLK1, INT_CLK2 */
+			dev_dbg(pTAS2557->dev, "IRQ critical Error L: 0x%x, 0x%x\n",
+				nDevLInt1Status, nDevLInt2Status);
+			if (nDevLInt1Status & 0x80) {
+				pTAS2557->mnErrCode |= ERROR_OVER_CURRENT;
+				dev_err(pTAS2557->dev, "DEVA SPK over current!\n");
+			} else
+				pTAS2557->mnErrCode &= ~ERROR_OVER_CURRENT;
+
+			if (nDevLInt1Status & 0x40) {
+				pTAS2557->mnErrCode |= ERROR_UNDER_VOLTAGE;
+				dev_err(pTAS2557->dev, "DEVA SPK under voltage!\n");
+			} else
+				pTAS2557->mnErrCode &= ~ERROR_UNDER_VOLTAGE;
+
+			if (nDevLInt1Status & 0x20) {
+				pTAS2557->mnErrCode |= ERROR_CLK_HALT;
+				dev_err(pTAS2557->dev, "DEVA clk halted!\n");
+			} else
+				pTAS2557->mnErrCode &= ~ERROR_CLK_HALT;
+
+			if (nDevLInt1Status & 0x10) {
+				pTAS2557->mnErrCode |= ERROR_DIE_OVERTEMP;
+				dev_err(pTAS2557->dev, "DEVA die over temperature!\n");
+			} else
+				pTAS2557->mnErrCode &= ~ERROR_DIE_OVERTEMP;
+
+			if (nDevLInt1Status & 0x08) {
+				pTAS2557->mnErrCode |= ERROR_BROWNOUT;
+				dev_err(pTAS2557->dev, "DEVA brownout!\n");
+			} else
+				pTAS2557->mnErrCode &= ~ERROR_BROWNOUT;
+
+			if (nDevLInt1Status & 0x04) {
+				pTAS2557->mnErrCode |= ERROR_CLK_LOST;
+				dev_err(pTAS2557->dev, "DEVA clock lost!\n");
+			} else
+				pTAS2557->mnErrCode &= ~ERROR_CLK_LOST;
+
+			if (nDevLInt2Status & 0x08) {
+				pTAS2557->mnErrCode |= ERROR_CLK_DET1;
+				dev_err(pTAS2557->dev, "DEVA clk detection 1!\n");
+			} else
+				pTAS2557->mnErrCode &= ~ERROR_CLK_DET1;
+
+			if (nDevLInt2Status & 0x04) {
+				pTAS2557->mnErrCode |= ERROR_CLK_DET2;
+				dev_err(pTAS2557->dev, "DEVA clk detection 2!\n");
+			} else
+				pTAS2557->mnErrCode &= ~ERROR_CLK_DET2;
+
+			goto program;
+		} else {
+			dev_dbg(pTAS2557->dev, "IRQ status L: 0x%x, 0x%x\n",
+				nDevLInt1Status, nDevLInt2Status);
+			tas2557_dev_read(pTAS2557, channel_left, TAS2557_POWER_UP_FLAG_REG, &nDevLInt1Status);
+			if ((nDevLInt1Status & 0x40) == 0) {
+				/* Class-D doesn't power on */
+				tas2557_dev_read(pTAS2557, channel_left, TAS2557_POWER_CTRL2_REG, &nDevLInt2Status);
+				if (nDevLInt2Status & 0x80) {
+					/* failed to power on the Class-D */
+					pTAS2557->mnErrCode |= ERROR_CLASSD_PWR;
+					dev_err(pTAS2557->dev, "critical error L: Class-D doesn't power On\n");
+					goto program;
+				}
+			}
+			pTAS2557->mnErrCode &= ~ERROR_CLASSD_PWR;
+		}
+	}
+
+	if (pConfiguration->mnDevices & channel_right) {
+		nResult = tas2557_dev_read(pTAS2557, channel_right, TAS2557_FLAGS_1, &nDevRInt1Status);
+		if (nResult >= 0)
+			nResult = tas2557_dev_read(pTAS2557, channel_right, TAS2557_FLAGS_2, &nDevRInt2Status);
+		else
+			goto program;
+
+		if (((nDevRInt1Status & 0xfc) != 0) || ((nDevRInt2Status & 0x0c) != 0)) {
+			/* in case of INT_OC, INT_UV, INT_OT, INT_BO, INT_CL, INT_CLK1, INT_CLK2 */
+			dev_dbg(pTAS2557->dev, "IRQ critical Error R: 0x%x, 0x%x\n",
+				nDevRInt1Status, nDevRInt2Status);
+			if (nDevRInt1Status & 0x80) {
+				pTAS2557->mnErrCode |= ERROR_OVER_CURRENT;
+				dev_err(pTAS2557->dev, "DEVB SPK over current!\n");
+			} else
+				pTAS2557->mnErrCode &= ~ERROR_OVER_CURRENT;
+
+			if (nDevRInt1Status & 0x40) {
+				pTAS2557->mnErrCode |= ERROR_UNDER_VOLTAGE;
+				dev_err(pTAS2557->dev, "DEVB SPK under voltage!\n");
+			} else
+				pTAS2557->mnErrCode &= ~ERROR_UNDER_VOLTAGE;
+
+			if (nDevRInt1Status & 0x20) {
+				pTAS2557->mnErrCode |= ERROR_CLK_HALT;
+				dev_err(pTAS2557->dev, "DEVB clk halted!\n");
+			} else
+				pTAS2557->mnErrCode &= ~ERROR_CLK_HALT;
+
+			if (nDevRInt1Status & 0x10) {
+				pTAS2557->mnErrCode |= ERROR_DIE_OVERTEMP;
+				dev_err(pTAS2557->dev, "DEVB die over temperature!\n");
+			} else
+				pTAS2557->mnErrCode &= ~ERROR_DIE_OVERTEMP;
+
+			if (nDevRInt1Status & 0x08) {
+				pTAS2557->mnErrCode |= ERROR_BROWNOUT;
+				dev_err(pTAS2557->dev, "DEVB brownout!\n");
+			} else
+				pTAS2557->mnErrCode &= ~ERROR_BROWNOUT;
+
+			if (nDevRInt1Status & 0x04) {
+				pTAS2557->mnErrCode |= ERROR_CLK_LOST;
+				dev_err(pTAS2557->dev, "DEVB clock lost!\n");
+			} else
+				pTAS2557->mnErrCode &= ~ERROR_CLK_LOST;
+
+			if (nDevRInt2Status & 0x08) {
+				pTAS2557->mnErrCode |= ERROR_CLK_DET1;
+				dev_err(pTAS2557->dev, "DEVB clk detection 1!\n");
+			} else
+				pTAS2557->mnErrCode &= ~ERROR_CLK_DET1;
+
+			if (nDevRInt2Status & 0x04) {
+				pTAS2557->mnErrCode |= ERROR_CLK_DET2;
+				dev_err(pTAS2557->dev, "DEVB clk detection 2!\n");
+			} else
+				pTAS2557->mnErrCode &= ~ERROR_CLK_DET2;
+			goto program;
+		} else {
+			dev_dbg(pTAS2557->dev, "IRQ status R: 0x%x, 0x%x\n",
+				nDevRInt1Status, nDevRInt2Status);
+			tas2557_dev_read(pTAS2557, channel_right, TAS2557_POWER_UP_FLAG_REG, &nDevRInt1Status);
+			if ((nDevRInt1Status & 0x40) == 0) {
+				/* Class-D doesn't power on */
+				tas2557_dev_read(pTAS2557, channel_right, TAS2557_POWER_CTRL2_REG, &nDevRInt2Status);
+				if (nDevRInt2Status & 0x80) {
+					/* failed to power on the Class-D */
+					dev_err(pTAS2557->dev, "critical error R: Class-D doesn't power On\n");
+					pTAS2557->mnErrCode |= ERROR_CLASSD_PWR;
+					goto program;
+				}
+			}
+			pTAS2557->mnErrCode &= ~ERROR_CLASSD_PWR;
+		}
+	}
+
+	goto end;
+
 program:
 	/* hardware reset and reload */
-	tas2557_set_program(pTAS2557, pTAS2557->mnCurrentProgram, pTAS2557->mnCurrentConfiguration);
+	tas2557_set_program(pTAS2557, pConfiguration->mnDevices,
+		pTAS2557->mnCurrentProgram, pTAS2557->mnCurrentConfiguration);
 
 end:
 
@@ -666,9 +855,9 @@ static irqreturn_t tas2557_irq_handler(int irq, void *dev_id)
 {
 	struct tas2557_priv *pTAS2557 = (struct tas2557_priv *)dev_id;
 
-	tas2557_enableIRQ(pTAS2557, false);
-	/* get IRQ status after 100 ms */
-	schedule_delayed_work(&pTAS2557->irq_work, msecs_to_jiffies(100));
+	tas2557_enableIRQ(pTAS2557, channel_both, false);
+	/* get IRQ status after 50 ms */
+	schedule_delayed_work(&pTAS2557->irq_work, msecs_to_jiffies(50));
 	return IRQ_HANDLED;
 }
 
@@ -898,8 +1087,17 @@ static int tas2557_i2c_probe(struct i2c_client *pClient,
 			pTAS2557->mnLPGID, pTAS2557->mnRPGID);
 		nResult = -ENOTSUPP;
 		goto err;
-	} else
-		dev_info(pTAS2557->dev, "PGID = 0x%x\n", pTAS2557->mnLPGID);
+	}
+
+	if (pTAS2557->mnLPGID == TAS2557_PG_VERSION_2P1)
+		dev_info(pTAS2557->dev, "PG2.1 found\n");
+	else if (pTAS2557->mnLPGID == TAS2557_PG_VERSION_1P0)
+		dev_info(pTAS2557->dev, "PG1.0 found\n");
+	else {
+		dev_err(pTAS2557->dev, "PGID = 0x%x, not support\n", pTAS2557->mnLPGID);
+		nResult = -ENOTSUPP;
+		goto err;
+	}
 
 	if (gpio_is_valid(pTAS2557->mnLeftChlGpioINT)) {
 		nResult = gpio_request(pTAS2557->mnLeftChlGpioINT, "TAS2557-LeftCHL-IRQ");
@@ -914,7 +1112,7 @@ static int tas2557_i2c_probe(struct i2c_client *pClient,
 		pTAS2557->mnLeftChlIRQ = gpio_to_irq(pTAS2557->mnLeftChlGpioINT);
 		dev_dbg(pTAS2557->dev, "irq = %d\n", pTAS2557->mnLeftChlIRQ);
 		nResult = request_threaded_irq(pTAS2557->mnLeftChlIRQ, tas2557_irq_handler,
-				NULL, IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+				NULL, IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
 				pClient->name, pTAS2557);
 		if (nResult < 0) {
 			dev_err(pTAS2557->dev,
@@ -938,7 +1136,7 @@ static int tas2557_i2c_probe(struct i2c_client *pClient,
 			pTAS2557->mnRightChlIRQ = gpio_to_irq(pTAS2557->mnRightChlGpioINT);
 			dev_dbg(pTAS2557->dev, "irq = %d\n", pTAS2557->mnRightChlIRQ);
 			nResult = request_threaded_irq(pTAS2557->mnRightChlIRQ, tas2557_irq_handler,
-					NULL, IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+					NULL, IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
 					pClient->name, pTAS2557);
 			if (nResult < 0) {
 				dev_err(pTAS2557->dev,
@@ -946,7 +1144,8 @@ static int tas2557_i2c_probe(struct i2c_client *pClient,
 				goto err;
 			}
 			disable_irq_nosync(pTAS2557->mnRightChlIRQ);
-		}
+		} else
+			pTAS2557->mnRightChlIRQ = pTAS2557->mnLeftChlIRQ;
 	}
 
 	if (gpio_is_valid(pTAS2557->mnLeftChlGpioINT)
