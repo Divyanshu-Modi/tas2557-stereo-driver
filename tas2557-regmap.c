@@ -837,8 +837,7 @@ static void irq_work_routine(struct work_struct *work)
 
 program:
 	/* hardware reset and reload */
-	tas2557_set_program(pTAS2557, pConfiguration->mnDevices,
-		pTAS2557->mnCurrentProgram, pTAS2557->mnCurrentConfiguration);
+	tas2557_set_program(pTAS2557, pTAS2557->mnCurrentProgram, pTAS2557->mnCurrentConfiguration);
 
 end:
 

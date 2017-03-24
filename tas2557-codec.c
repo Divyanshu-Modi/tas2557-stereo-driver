@@ -326,17 +326,10 @@ static int tas2557_program_put(struct snd_kcontrol *pKcontrol,
 #endif
 	struct tas2557_priv *pTAS2557 = snd_soc_codec_get_drvdata(codec);
 	unsigned int nProgram = pValue->value.integer.value[0];
-	struct TConfiguration *pConfiguration;
 	int ret = 0;
 
 	mutex_lock(&pTAS2557->codec_lock);
-	if ((pTAS2557->mpFirmware->mnPrograms > 0)
-		&& (pTAS2557->mpFirmware->mnConfigurations > 0)) {
-		pConfiguration = &(pTAS2557->mpFirmware->mpConfigurations[pTAS2557->mnCurrentConfiguration]);
-		ret = tas2557_set_program(pTAS2557, pConfiguration->mnDevices, nProgram, -1);
-	} else
-		dev_err(pTAS2557->dev, "%s, firmware not loaded\n", __func__);
-
+	ret = tas2557_set_program(pTAS2557, nProgram, -1);
 	mutex_unlock(&pTAS2557->codec_lock);
 	return ret;
 }

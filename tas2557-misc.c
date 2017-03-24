@@ -316,7 +316,6 @@ static ssize_t tas2557_file_write(struct file *file, const char *buf, size_t cou
 {
 	struct tas2557_priv *pTAS2557 = (struct tas2557_priv *)file->private_data;
 	int ret = 0;
-	struct TConfiguration *pConfiguration;
 	unsigned char *p_kBuf = NULL;
 	unsigned int reg = 0;
 	enum channel chl;
@@ -396,8 +395,7 @@ static ssize_t tas2557_file_write(struct file *file, const char *buf, size_t cou
 				&& (pTAS2557->mpFirmware->mnPrograms > 0)) {
 				if (g_logEnable)
 					dev_info(pTAS2557->dev, "TIAUDIO_CMD_PROGRAM, set to %d\n", p_kBuf[1]);
-				pConfiguration = &(pTAS2557->mpFirmware->mpConfigurations[pTAS2557->mnCurrentConfiguration]);
-				tas2557_set_program(pTAS2557, pConfiguration->mnDevices, p_kBuf[1], -1);
+				tas2557_set_program(pTAS2557, p_kBuf[1], -1);
 				pTAS2557->mnDBGCmd = 0;
 			} else
 				dev_err(pTAS2557->dev, "%s, firmware not loaded\n", __func__);
@@ -523,7 +521,6 @@ err:
 static long tas2557_file_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct tas2557_priv *pTAS2557 = file->private_data;
-	struct TConfiguration *pConfiguration;
 	int ret = 0;
 
 	mutex_lock(&pTAS2557->file_lock);
@@ -549,10 +546,8 @@ static long tas2557_file_unlocked_ioctl(struct file *file, unsigned int cmd, uns
 	case SMARTPA_SPK_SWITCH_PROGRAM:
 	{
 		if ((pTAS2557->mpFirmware->mnConfigurations > 0)
-			&& (pTAS2557->mpFirmware->mnPrograms > 0)) {
-			pConfiguration = &(pTAS2557->mpFirmware->mpConfigurations[pTAS2557->mnCurrentConfiguration]);
-			tas2557_set_program(pTAS2557, pConfiguration->mnDevices, arg, -1);
-		}
+			&& (pTAS2557->mpFirmware->mnPrograms > 0))
+			tas2557_set_program(pTAS2557, arg, -1);
 	}
 	break;
 
