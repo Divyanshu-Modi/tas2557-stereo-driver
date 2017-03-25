@@ -196,6 +196,12 @@ int tas2557_SA_DevChnSetup(struct tas2557_priv *pTAS2557, unsigned int mode)
 		goto end;
 	}
 
+	if (pTAS2557->mbLoadConfigurationPrePowerUp) {
+		dev_dbg(pTAS2557->dev, "%s, setup channel after coeff update\n", __func__);
+		pTAS2557->mnChannelState = mode;
+		goto end;
+	}
+
 	switch (mode) {
 	case TAS2557_DM_AD_BD:
 	pDevABuf = pTAS2557->mnDevAChlData;
@@ -234,6 +240,7 @@ int tas2557_SA_DevChnSetup(struct tas2557_priv *pTAS2557, unsigned int mode)
 			goto end;
 		pTAS2557->mnChannelState = mode;
 	}
+
 end:
 
 	return nResult;
@@ -561,23 +568,32 @@ prog_coefficient:
 			TAS2557_BLOCK_CFG_COEFF_DEV_A);
 		if (nResult < 0)
 			goto end;
-		pTAS2557->mnChannelState = TAS2557_DM_AD_BD;
-		nResult = pTAS2557->bulk_read(pTAS2557,
-			channel_left, TAS2557_SA_PG2P1_CHL_CTRL_REG, pTAS2557->mnDevAChlData, 16);
-		if (nResult < 0)
-			goto end;
+		if (pTAS2557->mnChannelState == TAS2557_DM_AD_BD) {
+			nResult = pTAS2557->bulk_read(pTAS2557,
+				channel_left, TAS2557_SA_PG2P1_CHL_CTRL_REG, pTAS2557->mnDevAChlData, 16);
+			if (nResult < 0)
+				goto end;
+		}
 	}
 	if (pNewConfiguration->mnDevices & channel_right) {
 		nResult = tas2557_load_data(pTAS2557, &(pNewConfiguration->mData),
 			TAS2557_BLOCK_CFG_COEFF_DEV_B);
 		if (nResult < 0)
 			goto end;
-		pTAS2557->mnChannelState = TAS2557_DM_AD_BD;
-		nResult = pTAS2557->bulk_read(pTAS2557,
-			channel_right, TAS2557_SA_PG2P1_CHL_CTRL_REG, pTAS2557->mnDevBChlData, 16);
+		if (pTAS2557->mnChannelState == TAS2557_DM_AD_BD) {
+			nResult = pTAS2557->bulk_read(pTAS2557,
+				channel_right, TAS2557_SA_PG2P1_CHL_CTRL_REG, pTAS2557->mnDevBChlData, 16);
+			if (nResult < 0)
+				goto end;
+		}
+	}
+
+	if (pTAS2557->mnChannelState != TAS2557_DM_AD_BD) {
+		nResult = tas2557_SA_DevChnSetup(pTAS2557, pTAS2557->mnChannelState);
 		if (nResult < 0)
 			goto end;
 	}
+
 	if (pTAS2557->mpCalFirmware->mnCalibrations) {
 		pCalibration = &(pTAS2557->mpCalFirmware->mpCalibrations[pTAS2557->mnCurrentCalibration]);
 		dev_dbg(pTAS2557->dev, "load calibration\n");
