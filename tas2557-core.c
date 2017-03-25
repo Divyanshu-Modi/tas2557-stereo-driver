@@ -165,13 +165,20 @@ int tas2557_configIRQ(struct tas2557_priv *pTAS2557)
 	return tas2557_dev_load_data(pTAS2557, channel_both, p_tas2557_irq_config);
 }
 
-int tas2557_SA_SwapChannel(struct tas2557_priv *pTAS2557, bool swap)
+/*
+* for PG2.1 Dual Mono
+*/
+int tas2557_SA_DevChnSetup(struct tas2557_priv *pTAS2557, unsigned int mode)
 {
 	int nResult = 0;
 	struct TProgram *pProgram;
-	struct TConfiguration *pConfiguration;
-	unsigned char buf_a[16], buf_b[16];
+	unsigned char buf_mute[16] = {0};
+	unsigned char buf_DevA_Left_DevB_Right[16] = {0x40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x40, 0, 0, 0};
+	unsigned char buf_DevA_Right_DevB_Left[16] = {0, 0, 0, 0, 0x40, 0, 0, 0, 0x40, 0, 0, 0, 0, 0, 0, 0};
+	unsigned char buf_DevA_MonoMix_DevB_MonoMix[16] = {0x20, 0, 0, 0, 0x20, 0, 0, 0, 0x20, 0, 0, 0, 0x20, 0, 0, 0};
+	unsigned char *pDevABuf, *pDevBBuf;
 
+	dev_dbg(pTAS2557->dev, "%s, mode %d\n", __func__, mode);
 	if ((pTAS2557->mpFirmware->mnPrograms == 0)
 		|| (pTAS2557->mpFirmware->mnConfigurations == 0)) {
 		dev_err(pTAS2557->dev, "%s, firmware not loaded\n", __func__);
@@ -184,51 +191,49 @@ int tas2557_SA_SwapChannel(struct tas2557_priv *pTAS2557, bool swap)
 		goto end;
 	}
 
-	pConfiguration = &(pTAS2557->mpFirmware->mpConfigurations[pTAS2557->mnCurrentConfiguration]);
-	if (pConfiguration->mnDevices != channel_both) {
-		dev_err(pTAS2557->dev, "%s, not both channel\n", __func__);
-		goto end;
-	}
-/*
-* for PG2.1
-* for left channel, data[16] =
-* {0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-*  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-*
-* for right channel, data[16] =
-* {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-*  0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-*
-* for (left+right)/2 , data[16] =
-* {0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-*  0x20, 0x00, 0x00, 0x00,0x00, 0x00, 0x00, 0x00};
-*/
-
 	if (pTAS2557->mnLPGID != TAS2557_PG_VERSION_2P1) {
 		dev_err(pTAS2557->dev, "%s, currently we only support PG2.1\n", __func__);
 		goto end;
 	}
 
-	if (swap != pTAS2557->mnChannelSwap) {
-		/* get current configuration */
-		nResult = pTAS2557->bulk_read(pTAS2557, channel_left, TAS2557_SA_PG2P1_CHL_CTRL_REG, buf_a, 16);
-		if (nResult < 0) {
-			dev_err(pTAS2557->dev, "%s, left I2C error\n", __func__);
-			goto end;
-		}
+	switch (mode) {
+	case TAS2557_DM_AD_BD:
+	pDevABuf = pTAS2557->mnDevAChlData;
+	pDevBBuf = pTAS2557->mnDevBChlData;
+	break;
 
-		nResult = pTAS2557->bulk_read(pTAS2557, channel_right, TAS2557_SA_PG2P1_CHL_CTRL_REG, buf_b, 16);
-		if (nResult < 0) {
-			dev_err(pTAS2557->dev, "%s, right I2C error\n", __func__);
-			goto end;
-		}
+	case TAS2557_DM_AM_BM:
+	pDevABuf = buf_mute;
+	pDevBBuf = buf_mute;
+	break;
 
-		/* do channel swap */
-		pTAS2557->bulk_write(pTAS2557, channel_left, TAS2557_SA_PG2P1_CHL_CTRL_REG, buf_b, 16);
-		pTAS2557->bulk_write(pTAS2557, channel_right, TAS2557_SA_PG2P1_CHL_CTRL_REG, buf_a, 16);
-		pTAS2557->mnChannelSwap = swap;
+	case TAS2557_DM_AL_BR:
+	pDevABuf = buf_DevA_Left_DevB_Right;
+	pDevBBuf = buf_DevA_Left_DevB_Right;
+	break;
+
+	case TAS2557_DM_AR_BL:
+	pDevABuf = buf_DevA_Right_DevB_Left;
+	pDevBBuf = buf_DevA_Right_DevB_Left;
+	break;
+
+	case TAS2557_DM_AH_BH:
+	pDevABuf = buf_DevA_MonoMix_DevB_MonoMix;
+	pDevBBuf = buf_DevA_MonoMix_DevB_MonoMix;
+	break;
+	default:
+	break;
 	}
 
+	if (pDevABuf && pDevBBuf) {
+		nResult = pTAS2557->bulk_write(pTAS2557, channel_left, TAS2557_SA_PG2P1_CHL_CTRL_REG, pDevABuf, 16);
+		if (nResult < 0)
+			goto end;
+		nResult = pTAS2557->bulk_write(pTAS2557, channel_right, TAS2557_SA_PG2P1_CHL_CTRL_REG, pDevBBuf, 16);
+		if (nResult < 0)
+			goto end;
+		pTAS2557->mnChannelState = mode;
+	}
 end:
 
 	return nResult;
@@ -556,10 +561,20 @@ prog_coefficient:
 			TAS2557_BLOCK_CFG_COEFF_DEV_A);
 		if (nResult < 0)
 			goto end;
+		pTAS2557->mnChannelState = TAS2557_DM_AD_BD;
+		nResult = pTAS2557->bulk_read(pTAS2557,
+			channel_left, TAS2557_SA_PG2P1_CHL_CTRL_REG, pTAS2557->mnDevAChlData, 16);
+		if (nResult < 0)
+			goto end;
 	}
 	if (pNewConfiguration->mnDevices & channel_right) {
 		nResult = tas2557_load_data(pTAS2557, &(pNewConfiguration->mData),
 			TAS2557_BLOCK_CFG_COEFF_DEV_B);
+		if (nResult < 0)
+			goto end;
+		pTAS2557->mnChannelState = TAS2557_DM_AD_BD;
+		nResult = pTAS2557->bulk_read(pTAS2557,
+			channel_right, TAS2557_SA_PG2P1_CHL_CTRL_REG, pTAS2557->mnDevBChlData, 16);
 		if (nResult < 0)
 			goto end;
 	}

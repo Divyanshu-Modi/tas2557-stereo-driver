@@ -302,6 +302,12 @@
 #define	TAS2557_BOOST_DEVB		2
 #define	TAS2557_BOOST_BOTH		3
 
+#define	TAS2557_DM_AD_BD		0	/* DevA default, DevB default */
+#define	TAS2557_DM_AM_BM		1	/* DevA mute, DevB mute */
+#define	TAS2557_DM_AL_BR		2	/* DevA left channel, DevB right channel */
+#define	TAS2557_DM_AR_BL		3	/* DevA right channel, DevB left channel */
+#define	TAS2557_DM_AH_BH		4	/* DevA (L+R)/2, DevB (L+R)/2 */
+
 #define	ERROR_NONE			0x00000000
 #define	ERROR_PLL_ABSENT	0x00000001
 #define	ERROR_DEVA_I2C_COMM	0x00000002
@@ -477,7 +483,10 @@ struct tas2557_priv {
 	enum echo_reference mnEchoRef;
 	unsigned char mnI2SBits;
 
-	bool mnChannelSwap;	/* 0, default; 1, swapped */
+	unsigned int mnChannelState;
+	unsigned char mnDevAChlData[16];
+	unsigned char mnDevBChlData[16];
+
 	/* for low temperature check */
 	unsigned int mnDevGain;
 	unsigned int mnDevCurrentGain;

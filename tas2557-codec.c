@@ -503,12 +503,18 @@ static int tas2557_rdac_gain_put(struct snd_kcontrol *pKcontrol,
 	return ret;
 }
 
-static const char * const chl_swap_text[] = {"default", "swap"};
-static const struct soc_enum chl_swap_enum[] = {
-	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(chl_swap_text), chl_swap_text),
+static const char * const chl_setup_text[] = {
+	"default",
+	"DevA-Mute-DevB-Mute",
+	"DevA-Left-DevB-Right",
+	"DevA-Right-DevB-Left",
+	"DevA-MonoMix-DevB-MonoMix"
+};
+static const struct soc_enum chl_setup_enum[] = {
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(chl_setup_text), chl_setup_text),
 };
 
-static int tas2557_dsp_chl_swap_get(struct snd_kcontrol *pKcontrol,
+static int tas2557_dsp_chl_setup_get(struct snd_kcontrol *pKcontrol,
 			struct snd_ctl_elem_value *pValue)
 {
 #ifdef KCONTROL_CODEC
@@ -520,14 +526,14 @@ static int tas2557_dsp_chl_swap_get(struct snd_kcontrol *pKcontrol,
 
 	mutex_lock(&pTAS2557->codec_lock);
 
-	pValue->value.integer.value[0] = pTAS2557->mnChannelSwap;
+	pValue->value.integer.value[0] = pTAS2557->mnChannelState;
 
 	mutex_unlock(&pTAS2557->codec_lock);
 
 	return 0;
 }
 
-static int tas2557_dsp_chl_swap_put(struct snd_kcontrol *pKcontrol,
+static int tas2557_dsp_chl_setup_put(struct snd_kcontrol *pKcontrol,
 			struct snd_ctl_elem_value *pValue)
 {
 #ifdef KCONTROL_CODEC
@@ -536,11 +542,11 @@ static int tas2557_dsp_chl_swap_put(struct snd_kcontrol *pKcontrol,
 	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
 #endif
 	struct tas2557_priv *pTAS2557 = snd_soc_codec_get_drvdata(codec);
-	int swap = pValue->value.integer.value[0];
+	int channel_state = pValue->value.integer.value[0];
 
 	mutex_lock(&pTAS2557->codec_lock);
 
-	tas2557_SA_SwapChannel(pTAS2557, (swap != 0));
+	tas2557_SA_DevChnSetup(pTAS2557, channel_state);
 
 	mutex_unlock(&pTAS2557->codec_lock);
 	return 0;
@@ -608,8 +614,8 @@ static const struct snd_kcontrol_new tas2557_snd_controls[] = {
 		tas2557_fs_get, tas2557_fs_put),
 	SOC_SINGLE_EXT("Stereo Calibration", SND_SOC_NOPM, 0, 0x00FF, 0,
 		tas2557_calibration_get, tas2557_calibration_put),
-	SOC_ENUM_EXT("Stereo DSPChl Swap", chl_swap_enum[0],
-		tas2557_dsp_chl_swap_get, tas2557_dsp_chl_swap_put),
+	SOC_ENUM_EXT("Stereo DSPChl Setup", chl_setup_enum[0],
+		tas2557_dsp_chl_setup_get, tas2557_dsp_chl_setup_put),
 	SOC_ENUM_EXT("Stereo EchoRef Ctrl", echoref_ctl_enum[0],
 		tas2557_echoref_ctl_get, tas2557_echoref_ctl_put),
 };
