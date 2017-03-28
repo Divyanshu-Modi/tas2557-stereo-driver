@@ -2200,86 +2200,67 @@ int tas2557_parse_dt(struct device *dev, struct tas2557_priv *pTAS2557)
 	int rc = 0, ret = 0;
 	unsigned int value;
 
-	pTAS2557->mnResetGPIO = of_get_named_gpio(np, "ti,cdc-reset-gpio", 0);
-	if (pTAS2557->mnResetGPIO < 0) {
+	pTAS2557->mnLeftChlGpioRst = of_get_named_gpio(np, "ti,reset-gpio-left", 0);
+	if (!gpio_is_valid(pTAS2557->mnLeftChlGpioRst))
 		dev_err(pTAS2557->dev, "Looking up %s property in node %s failed %d\n",
-			"ti,cdc-reset-gpio", np->full_name,
-			pTAS2557->mnResetGPIO);
-		ret = -EINVAL;
-	} else
-			dev_dbg(pTAS2557->dev, "ti,cdc-reset-gpio=%d\n", pTAS2557->mnResetGPIO);
+			"ti,reset-gpio-left", np->full_name, pTAS2557->mnLeftChlGpioRst);
+	else
+		dev_dbg(pTAS2557->dev, "%s, left reset gpio %d\n", __func__, pTAS2557->mnLeftChlGpioRst);
 
-	if (ret >= 0) {
-		pTAS2557->mnLeftChlGpioINT = of_get_named_gpio(np, "ti,irq-gpio-left", 0);
-		if (pTAS2557->mnLeftChlGpioINT < 0) {
-			dev_err(pTAS2557->dev, "Looking up %s property in node %s failed %d\n",
-				"ti,irq-gpio-left", np->full_name,
-				pTAS2557->mnLeftChlGpioINT);
-			ret = -EINVAL;
-		} else {
-			dev_dbg(pTAS2557->dev, "ti,irq-gpio-left=%d\n", pTAS2557->mnLeftChlGpioINT);
-		}
-	}
+	pTAS2557->mnRightChlGpioRst = of_get_named_gpio(np, "ti,reset-gpio-right", 0);
+	if (!gpio_is_valid(pTAS2557->mnRightChlGpioRst))
+		dev_err(pTAS2557->dev, "Looking up %s property in node %s failed %d\n",
+			"ti,reset-gpio-right", np->full_name, pTAS2557->mnRightChlGpioRst);
+	else
+		dev_dbg(pTAS2557->dev, "%s, right reset gpio %d\n", __func__, pTAS2557->mnRightChlGpioRst);
 
-	if (ret >= 0) {
-		pTAS2557->mnRightChlGpioINT = of_get_named_gpio(np, "ti,irq-gpio-right", 0);
-		if (pTAS2557->mnRightChlGpioINT < 0) {
-			dev_err(pTAS2557->dev, "Looking up %s property in node %s failed %d\n",
-				"ti,irq-gpio-right", np->full_name,
-				pTAS2557->mnRightChlGpioINT);
-			ret = -EINVAL;
-		} else {
-			dev_dbg(pTAS2557->dev, "ti,irq-gpio-right=%d\n", pTAS2557->mnRightChlGpioINT);
-		}
-	}
+	pTAS2557->mnLeftChlGpioINT = of_get_named_gpio(np, "ti,irq-gpio-left", 0);
+	if (!gpio_is_valid(pTAS2557->mnLeftChlGpioINT))
+		dev_err(pTAS2557->dev, "Looking up %s property in node %s failed %d\n",
+			"ti,irq-gpio-left", np->full_name, pTAS2557->mnLeftChlGpioINT);
 
-	if (ret >= 0) {
-		rc = of_property_read_u32(np, "ti,left-channel", &value);
-		if (rc) {
-			dev_err(pTAS2557->dev, "Looking up %s property in node %s failed %d\n",
+	pTAS2557->mnRightChlGpioINT = of_get_named_gpio(np, "ti,irq-gpio-right", 0);
+	if (!gpio_is_valid(pTAS2557->mnRightChlGpioINT))
+		dev_err(pTAS2557->dev, "Looking up %s property in node %s failed %d\n",
+			"ti,irq-gpio-right", np->full_name, pTAS2557->mnRightChlGpioINT);
+
+	rc = of_property_read_u32(np, "ti,left-channel", &value);
+	if (rc) {
+		dev_err(pTAS2557->dev, "Looking up %s property in node %s failed %d\n",
 				"ti,left-channel", np->full_name, rc);
-			ret = -EINVAL;
-		} else {
-			pTAS2557->mnLAddr = value;
-			dev_dbg(pTAS2557->dev, "ti,left-channel=0x%x\n", pTAS2557->mnLAddr);
-		}
+		ret = -EINVAL;
+		goto end;
+	} else {
+		pTAS2557->mnLAddr = value;
+		dev_dbg(pTAS2557->dev, "ti,left-channel=0x%x\n", pTAS2557->mnLAddr);
 	}
 
-	if (ret >= 0) {
-		rc = of_property_read_u32(np, "ti,right-channel", &value);
-		if (rc) {
-			dev_err(pTAS2557->dev, "Looking up %s property in node %s failed %d\n",
-				"ti,right-channel", np->full_name, rc);
-			ret = -EINVAL;
-		} else {
-			pTAS2557->mnRAddr = value;
-			dev_dbg(pTAS2557->dev, "ti,right-channel=0x%x\n", pTAS2557->mnRAddr);
-		}
+	rc = of_property_read_u32(np, "ti,right-channel", &value);
+	if (rc) {
+		dev_err(pTAS2557->dev, "Looking up %s property in node %s failed %d\n",
+			"ti,right-channel", np->full_name, rc);
+		ret = -EINVAL;
+		goto end;
+	} else {
+		pTAS2557->mnRAddr = value;
+		dev_dbg(pTAS2557->dev, "ti,right-channel=0x%x\n", pTAS2557->mnRAddr);
 	}
 
-	if (ret >= 0) {
-		rc = of_property_read_u32(np, "ti,echo-ref", &value);
-		if (rc) {
-			dev_err(pTAS2557->dev, "Looking up %s property in node %s failed %d\n",
-				"ti,echo-ref", np->full_name, rc);
-			ret = -EINVAL;
-		} else {
-			pTAS2557->mnEchoRef = value;
-			dev_dbg(pTAS2557->dev, "ti,echo-ref=%d\n", pTAS2557->mnEchoRef);
-		}
-	}
+	rc = of_property_read_u32(np, "ti,echo-ref", &value);
+	if (rc)
+		dev_err(pTAS2557->dev, "Looking up %s property in node %s failed %d\n",
+			"ti,echo-ref", np->full_name, rc);
+	else
+		pTAS2557->mnEchoRef = value;
 
-	if (ret >= 0) {
-		rc = of_property_read_u32(np, "ti,i2s-bits", &value);
-		if (rc) {
-			dev_err(pTAS2557->dev, "Looking up %s property in node %s failed %d\n",
-				"ti,i2s-bits", np->full_name, rc);
-			ret = -EINVAL;
-		} else {
-			pTAS2557->mnI2SBits = value;
-			dev_dbg(pTAS2557->dev, "ti,i2s-bits=%d\n", pTAS2557->mnI2SBits);
-		}
-	}
+	rc = of_property_read_u32(np, "ti,i2s-bits", &value);
+	if (rc)
+		dev_err(pTAS2557->dev, "Looking up %s property in node %s failed %d\n",
+			"ti,i2s-bits", np->full_name, rc);
+	else
+		pTAS2557->mnI2SBits = value;
+
+end:
 
 	return ret;
 }

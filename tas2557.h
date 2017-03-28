@@ -325,6 +325,8 @@
 #define	ERROR_CLASSD_PWR	0x00002000
 #define	ERROR_FAILSAFE		0x40000000
 
+#define	FLAG_CHECK_COUNTER	25
+
 struct TBlock {
 	unsigned int mnType;
 	unsigned char mbPChkSumPresent;
@@ -418,10 +420,10 @@ struct tas2557_priv {
 	struct device *dev;
 	struct regmap *mpRegmap;
 	struct i2c_client *client;
-	int mnLoad;
 	int mnLPGID;
 	int mnRPGID;
-	int mnResetGPIO;
+	int mnLeftChlGpioRst;
+	int mnRightChlGpioRst;
 	struct mutex dev_lock;
 	struct TFirmware *mpFirmware;
 	struct TFirmware *mpCalFirmware;

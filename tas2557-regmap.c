@@ -633,10 +633,20 @@ void tas2557_enableIRQ(struct tas2557_priv *pTAS2557, enum channel chl, bool ena
 
 static void tas2557_hw_reset(struct tas2557_priv *pTAS2557)
 {
-	if (gpio_is_valid(pTAS2557->mnResetGPIO)) {
-		gpio_direction_output(pTAS2557->mnResetGPIO, 0);
+	dev_dbg(pTAS2557->dev, "%s\n", __func__);
+
+	if (gpio_is_valid(pTAS2557->mnLeftChlGpioRst)) {
+		gpio_direction_output(pTAS2557->mnLeftChlGpioRst, 0);
 		msleep(5);
-		gpio_direction_output(pTAS2557->mnResetGPIO, 1);
+		gpio_direction_output(pTAS2557->mnLeftChlGpioRst, 1);
+		msleep(2);
+	}
+
+	if (gpio_is_valid(pTAS2557->mnRightChlGpioRst)
+		&& (pTAS2557->mnLeftChlGpioRst != pTAS2557->mnRightChlGpioRst)) {
+		gpio_direction_output(pTAS2557->mnRightChlGpioRst, 0);
+		msleep(5);
+		gpio_direction_output(pTAS2557->mnRightChlGpioRst, 1);
 		msleep(2);
 	}
 
@@ -651,12 +661,12 @@ static void tas2557_hw_reset(struct tas2557_priv *pTAS2557)
 
 static void irq_work_routine(struct work_struct *work)
 {
-	int nResult = 0;
+	struct tas2557_priv *pTAS2557 =
+		container_of(work, struct tas2557_priv, irq_work.work);
 	struct TConfiguration *pConfiguration;
 	unsigned int nDevLInt1Status = 0, nDevLInt2Status = 0;
 	unsigned int nDevRInt1Status = 0, nDevRInt2Status = 0;
-	struct tas2557_priv *pTAS2557 =
-		container_of(work, struct tas2557_priv, irq_work.work);
+	int nCounter, nResult = 0;
 
 #ifdef CONFIG_TAS2557_CODEC_STEREO
 	mutex_lock(&pTAS2557->codec_lock);
@@ -677,6 +687,9 @@ static void irq_work_routine(struct work_struct *work)
 		goto end;
 	}
 
+	nCounter = FLAG_CHECK_COUNTER;
+
+checkFlags:
 	pConfiguration = &(pTAS2557->mpFirmware->mpConfigurations[pTAS2557->mnCurrentConfiguration]);
 	if (pConfiguration->mnDevices & channel_left) {
 		nResult = tas2557_dev_read(pTAS2557, channel_left, TAS2557_FLAGS_1, &nDevLInt1Status);
@@ -833,6 +846,45 @@ static void irq_work_routine(struct work_struct *work)
 		}
 	}
 
+	if (gpio_is_valid(pTAS2557->mnLeftChlGpioINT)) {
+		msleep(5);
+		nResult = gpio_get_value(pTAS2557->mnLeftChlGpioINT);
+		if (nResult == 1) {
+			nCounter--;
+			if (nCounter == 0) {
+				dev_err(pTAS2557->dev, "%s, Critical error, after %d ms, still cannot get devA flags\n",
+					__func__, FLAG_CHECK_COUNTER * 20);
+				goto program;
+			} else {
+				dev_info(pTAS2557->dev, "%s, attention, Left IRQ pin HIGH, check %d times\n",
+					__func__, nCounter);
+				msleep(20);
+				goto checkFlags;
+			}
+		} else
+			dev_dbg(pTAS2557->dev, "%s, left IRQ low\n", __func__);
+	}
+
+	if ((gpio_is_valid(pTAS2557->mnRightChlGpioINT))
+		&& (pTAS2557->mnLeftChlGpioINT != pTAS2557->mnRightChlGpioINT)) {
+		msleep(5);
+		nResult = gpio_get_value(pTAS2557->mnRightChlGpioINT);
+		if (nResult == 1) {
+			nCounter--;
+			if (nCounter == 0) {
+				dev_err(pTAS2557->dev, "%s, Critical error, after %d ms, still cannot get devB flags\n",
+					__func__, FLAG_CHECK_COUNTER * 20);
+				goto program;
+			} else {
+				dev_info(pTAS2557->dev, "%s, attention, Right IRQ pin HIGH, check %d times\n",
+					__func__, nCounter);
+				msleep(20);
+				goto checkFlags;
+			}
+		} else
+			dev_dbg(pTAS2557->dev, "%s, right IRQ low\n", __func__);
+	}
+
 	goto end;
 
 program:
@@ -855,8 +907,8 @@ static irqreturn_t tas2557_irq_handler(int irq, void *dev_id)
 	struct tas2557_priv *pTAS2557 = (struct tas2557_priv *)dev_id;
 
 	tas2557_enableIRQ(pTAS2557, channel_both, false);
-	/* get IRQ status after 50 ms */
-	schedule_delayed_work(&pTAS2557->irq_work, msecs_to_jiffies(50));
+	/* get IRQ status after 20 ms */
+	schedule_delayed_work(&pTAS2557->irq_work, msecs_to_jiffies(20));
 	return IRQ_HANDLED;
 }
 
@@ -1046,15 +1098,28 @@ static int tas2557_i2c_probe(struct i2c_client *pClient,
 	if (pClient->dev.of_node)
 		tas2557_parse_dt(&pClient->dev, pTAS2557);
 
-	if (gpio_is_valid(pTAS2557->mnResetGPIO)) {
-		nResult = gpio_request(pTAS2557->mnResetGPIO, "TAS2557-RESET");
+	if (gpio_is_valid(pTAS2557->mnLeftChlGpioRst)) {
+		nResult = gpio_request(pTAS2557->mnLeftChlGpioRst, "TAS2557-RESET-Left");
 		if (nResult < 0) {
 			dev_err(pTAS2557->dev, "%s: GPIO %d request error\n",
-				__func__, pTAS2557->mnResetGPIO);
+				__func__, pTAS2557->mnLeftChlGpioRst);
 			goto err;
 		}
-		tas2557_hw_reset(pTAS2557);
 	}
+
+	if (gpio_is_valid(pTAS2557->mnRightChlGpioRst)
+		&& (pTAS2557->mnLeftChlGpioRst != pTAS2557->mnRightChlGpioRst)) {
+		nResult = gpio_request(pTAS2557->mnRightChlGpioRst, "TAS2557-RESET-Right");
+		if (nResult < 0) {
+			dev_err(pTAS2557->dev, "%s: GPIO %d request error\n",
+				__func__, pTAS2557->mnRightChlGpioRst);
+			goto err;
+		}
+	}
+
+	if (gpio_is_valid(pTAS2557->mnLeftChlGpioRst)
+		|| gpio_is_valid(pTAS2557->mnRightChlGpioRst))
+		tas2557_hw_reset(pTAS2557);
 
 	pTAS2557->read = tas2557_dev_read;
 	pTAS2557->write = tas2557_dev_write;
