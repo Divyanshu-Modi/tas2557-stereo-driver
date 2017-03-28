@@ -666,7 +666,7 @@ static void irq_work_routine(struct work_struct *work)
 	struct TConfiguration *pConfiguration;
 	unsigned int nDevLInt1Status = 0, nDevLInt2Status = 0;
 	unsigned int nDevRInt1Status = 0, nDevRInt2Status = 0;
-	int nCounter, nResult = 0;
+	int nResult = 0;
 
 #ifdef CONFIG_TAS2557_CODEC_STEREO
 	mutex_lock(&pTAS2557->codec_lock);
@@ -687,9 +687,6 @@ static void irq_work_routine(struct work_struct *work)
 		goto end;
 	}
 
-	nCounter = FLAG_CHECK_COUNTER;
-
-checkFlags:
 	pConfiguration = &(pTAS2557->mpFirmware->mpConfigurations[pTAS2557->mnCurrentConfiguration]);
 	if (pConfiguration->mnDevices & channel_left) {
 		nResult = tas2557_dev_read(pTAS2557, channel_left, TAS2557_FLAGS_1, &nDevLInt1Status);
@@ -755,15 +752,15 @@ checkFlags:
 			dev_dbg(pTAS2557->dev, "IRQ status L: 0x%x, 0x%x\n",
 				nDevLInt1Status, nDevLInt2Status);
 			tas2557_dev_read(pTAS2557, channel_left, TAS2557_POWER_UP_FLAG_REG, &nDevLInt1Status);
-			if ((nDevLInt1Status & 0x40) == 0) {
-				/* Class-D doesn't power on */
-				tas2557_dev_read(pTAS2557, channel_left, TAS2557_POWER_CTRL2_REG, &nDevLInt2Status);
-				if (nDevLInt2Status & 0x80) {
-					/* failed to power on the Class-D */
-					pTAS2557->mnErrCode |= ERROR_CLASSD_PWR;
-					dev_err(pTAS2557->dev, "critical error L: Class-D doesn't power On\n");
-					goto program;
-				}
+			if (nDevLInt1Status != 0xfc) {
+				dev_err(pTAS2557->dev, "%s, Critical DevA ERROR B[%d]_P[%d]_R[%d]= 0x%x\n",
+					__func__,
+					TAS2557_BOOK_ID(TAS2557_POWER_UP_FLAG_REG),
+					TAS2557_PAGE_ID(TAS2557_POWER_UP_FLAG_REG),
+					TAS2557_PAGE_REG(TAS2557_POWER_UP_FLAG_REG),
+					nDevLInt1Status);
+				pTAS2557->mnErrCode |= ERROR_CLASSD_PWR;
+				goto program;
 			}
 			pTAS2557->mnErrCode &= ~ERROR_CLASSD_PWR;
 		}
@@ -832,57 +829,18 @@ checkFlags:
 			dev_dbg(pTAS2557->dev, "IRQ status R: 0x%x, 0x%x\n",
 				nDevRInt1Status, nDevRInt2Status);
 			tas2557_dev_read(pTAS2557, channel_right, TAS2557_POWER_UP_FLAG_REG, &nDevRInt1Status);
-			if ((nDevRInt1Status & 0x40) == 0) {
-				/* Class-D doesn't power on */
-				tas2557_dev_read(pTAS2557, channel_right, TAS2557_POWER_CTRL2_REG, &nDevRInt2Status);
-				if (nDevRInt2Status & 0x80) {
-					/* failed to power on the Class-D */
-					dev_err(pTAS2557->dev, "critical error R: Class-D doesn't power On\n");
-					pTAS2557->mnErrCode |= ERROR_CLASSD_PWR;
-					goto program;
-				}
+			if (nDevRInt1Status != 0xfc) {
+				dev_err(pTAS2557->dev, "%s, Critical DevB ERROR B[%d]_P[%d]_R[%d]= 0x%x\n",
+					__func__,
+					TAS2557_BOOK_ID(TAS2557_POWER_UP_FLAG_REG),
+					TAS2557_PAGE_ID(TAS2557_POWER_UP_FLAG_REG),
+					TAS2557_PAGE_REG(TAS2557_POWER_UP_FLAG_REG),
+					nDevRInt1Status);
+				pTAS2557->mnErrCode |= ERROR_CLASSD_PWR;
+				goto program;
 			}
 			pTAS2557->mnErrCode &= ~ERROR_CLASSD_PWR;
 		}
-	}
-
-	if (gpio_is_valid(pTAS2557->mnLeftChlGpioINT)) {
-		msleep(5);
-		nResult = gpio_get_value(pTAS2557->mnLeftChlGpioINT);
-		if (nResult == 1) {
-			nCounter--;
-			if (nCounter == 0) {
-				dev_err(pTAS2557->dev, "%s, Critical error, after %d ms, still cannot get devA flags\n",
-					__func__, FLAG_CHECK_COUNTER * 20);
-				goto program;
-			} else {
-				dev_info(pTAS2557->dev, "%s, attention, Left IRQ pin HIGH, check %d times\n",
-					__func__, nCounter);
-				msleep(20);
-				goto checkFlags;
-			}
-		} else
-			dev_dbg(pTAS2557->dev, "%s, left IRQ low\n", __func__);
-	}
-
-	if ((gpio_is_valid(pTAS2557->mnRightChlGpioINT))
-		&& (pTAS2557->mnLeftChlGpioINT != pTAS2557->mnRightChlGpioINT)) {
-		msleep(5);
-		nResult = gpio_get_value(pTAS2557->mnRightChlGpioINT);
-		if (nResult == 1) {
-			nCounter--;
-			if (nCounter == 0) {
-				dev_err(pTAS2557->dev, "%s, Critical error, after %d ms, still cannot get devB flags\n",
-					__func__, FLAG_CHECK_COUNTER * 20);
-				goto program;
-			} else {
-				dev_info(pTAS2557->dev, "%s, attention, Right IRQ pin HIGH, check %d times\n",
-					__func__, nCounter);
-				msleep(20);
-				goto checkFlags;
-			}
-		} else
-			dev_dbg(pTAS2557->dev, "%s, right IRQ low\n", __func__);
 	}
 
 	goto end;
@@ -907,8 +865,8 @@ static irqreturn_t tas2557_irq_handler(int irq, void *dev_id)
 	struct tas2557_priv *pTAS2557 = (struct tas2557_priv *)dev_id;
 
 	tas2557_enableIRQ(pTAS2557, channel_both, false);
-	/* get IRQ status after 20 ms */
-	schedule_delayed_work(&pTAS2557->irq_work, msecs_to_jiffies(20));
+	/* get IRQ status after 100 ms */
+	schedule_delayed_work(&pTAS2557->irq_work, msecs_to_jiffies(100));
 	return IRQ_HANDLED;
 }
 
@@ -916,8 +874,10 @@ static enum hrtimer_restart temperature_timer_func(struct hrtimer *timer)
 {
 	struct tas2557_priv *pTAS2557 = container_of(timer, struct tas2557_priv, mtimer);
 
-	if (pTAS2557->mbPowerUp)
+	if (pTAS2557->mbPowerUp) {
 		schedule_work(&pTAS2557->mtimerwork);
+		schedule_delayed_work(&pTAS2557->irq_work, msecs_to_jiffies(1));
+	}
 	return HRTIMER_NORESTART;
 }
 
