@@ -752,7 +752,7 @@ static void irq_work_routine(struct work_struct *work)
 			dev_dbg(pTAS2557->dev, "IRQ status L: 0x%x, 0x%x\n",
 				nDevLInt1Status, nDevLInt2Status);
 			tas2557_dev_read(pTAS2557, channel_left, TAS2557_POWER_UP_FLAG_REG, &nDevLInt1Status);
-			if (nDevLInt1Status != 0xfc) {
+			if ((nDevLInt1Status & 0xc0) != 0xc0) {
 				dev_err(pTAS2557->dev, "%s, Critical DevA ERROR B[%d]_P[%d]_R[%d]= 0x%x\n",
 					__func__,
 					TAS2557_BOOK_ID(TAS2557_POWER_UP_FLAG_REG),
@@ -829,7 +829,7 @@ static void irq_work_routine(struct work_struct *work)
 			dev_dbg(pTAS2557->dev, "IRQ status R: 0x%x, 0x%x\n",
 				nDevRInt1Status, nDevRInt2Status);
 			tas2557_dev_read(pTAS2557, channel_right, TAS2557_POWER_UP_FLAG_REG, &nDevRInt1Status);
-			if (nDevRInt1Status != 0xfc) {
+			if ((nDevRInt1Status & 0xc0) != 0xc0) {
 				dev_err(pTAS2557->dev, "%s, Critical DevB ERROR B[%d]_P[%d]_R[%d]= 0x%x\n",
 					__func__,
 					TAS2557_BOOK_ID(TAS2557_POWER_UP_FLAG_REG),
