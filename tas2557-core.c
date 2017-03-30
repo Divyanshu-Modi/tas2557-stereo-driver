@@ -41,8 +41,9 @@
 #include "tas2557.h"
 #include "tas2557-core.h"
 
-#define PPC_DRIVER_CRCCHK			0x00000200
-#define PPC_DRIVER_CONFDEV			0x00000300
+#define	PPC_DRIVER_CRCCHK			0x00000200
+#define	PPC_DRIVER_CONFDEV			0x00000300
+#define	PPC_DRIVER_CFGDEV_NONCRC	0x00000101
 
 #define TAS2557_CAL_NAME    "/data/tas2557_cal.bin"
 
@@ -1048,7 +1049,9 @@ static int fw_parse_configuration_data(struct tas2557_priv *pTAS2557,
 		pConfiguration->mpDescription = kmemdup(pData, n + 1, GFP_KERNEL);
 		pData += n + 1;
 
-		if (pFirmware->mnDriverVersion >= PPC_DRIVER_CONFDEV) {
+		if ((pFirmware->mnDriverVersion >= PPC_DRIVER_CONFDEV)
+			|| ((pFirmware->mnDriverVersion >= PPC_DRIVER_CFGDEV_NONCRC)
+				&& (pFirmware->mnDriverVersion < PPC_DRIVER_CRCCHK))) {
 			pConfiguration->mnDevices = (pData[0] << 8) + pData[1];
 			pData += 2;
 		} else
