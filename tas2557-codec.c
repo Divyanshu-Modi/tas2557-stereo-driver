@@ -296,6 +296,48 @@ static int tas2557_fs_put(struct snd_kcontrol *pKcontrol,
 	return ret;
 }
 
+static int tas2557_DevA_Cali_get(struct snd_kcontrol *pKcontrol,
+	struct snd_ctl_elem_value *pValue)
+{
+#ifdef KCONTROL_CODEC
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
+#else
+	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
+#endif
+	struct tas2557_priv *pTAS2557 = snd_soc_codec_get_drvdata(codec);
+	int ret = 0;
+	int prm_r0;
+
+	mutex_lock(&pTAS2557->codec_lock);
+
+	ret = tas2557_get_Cali_prm_r0(pTAS2557, channel_left, &prm_r0);
+	dev_dbg(pTAS2557->dev, "%s = 0x%x\n", __func__, prm_r0);
+
+	mutex_unlock(&pTAS2557->codec_lock);
+	return ret;
+}
+
+static int tas2557_DevB_Cali_get(struct snd_kcontrol *pKcontrol,
+	struct snd_ctl_elem_value *pValue)
+{
+#ifdef KCONTROL_CODEC
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
+#else
+	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
+#endif
+	struct tas2557_priv *pTAS2557 = snd_soc_codec_get_drvdata(codec);
+	int ret = 0;
+	int prm_r0;
+
+	mutex_lock(&pTAS2557->codec_lock);
+
+	ret = tas2557_get_Cali_prm_r0(pTAS2557, channel_right, &prm_r0);
+	dev_dbg(pTAS2557->dev, "%s = 0x%x\n", __func__, prm_r0);
+
+	mutex_unlock(&pTAS2557->codec_lock);
+	return ret;
+}
+
 static int tas2557_program_get(struct snd_kcontrol *pKcontrol,
 	struct snd_ctl_elem_value *pValue)
 {
@@ -598,7 +640,6 @@ static int tas2557_echoref_ctl_put(struct snd_kcontrol *pKcontrol,
 	return 0;
 }
 
-
 static const struct snd_kcontrol_new tas2557_snd_controls[] = {
 	SOC_SINGLE_EXT("Stereo LDAC Playback Volume", SND_SOC_NOPM, 0, 0x0f, 0,
 		tas2557_ldac_gain_get, tas2557_ldac_gain_put),
@@ -612,6 +653,10 @@ static const struct snd_kcontrol_new tas2557_snd_controls[] = {
 		tas2557_configuration_get, tas2557_configuration_put),
 	SOC_SINGLE_EXT("Stereo FS", SND_SOC_NOPM, 8000, 48000, 0,
 		tas2557_fs_get, tas2557_fs_put),
+	SOC_SINGLE_EXT("Get DevA Cali_Re", SND_SOC_NOPM, 0, 0x7f000000, 0,
+		tas2557_DevA_Cali_get, NULL),
+	SOC_SINGLE_EXT("Get DevB Cali_Re", SND_SOC_NOPM, 0, 0x7f000000, 0,
+		tas2557_DevB_Cali_get, NULL),
 	SOC_SINGLE_EXT("Stereo Calibration", SND_SOC_NOPM, 0, 0x00FF, 0,
 		tas2557_calibration_get, tas2557_calibration_put),
 	SOC_ENUM_EXT("Stereo DSPChl Setup", chl_setup_enum[0],

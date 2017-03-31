@@ -2197,6 +2197,86 @@ end:
 	return nResult;
 }
 
+int tas2557_get_Cali_prm_r0(struct tas2557_priv *pTAS2557, enum channel chl, int *prm_r0)
+{
+	int nResult = 0;
+	int n, nn;
+	struct TCalibration *pCalibration;
+	struct TData *pData;
+	struct TBlock *pBlock;
+	int nReg;
+	int nBook, nPage, nOffset;
+	unsigned char *pCommands;
+	int nCali_Re;
+	bool bFound = false;
+	int nBlockType;
+	int len;
+
+	if (!pTAS2557->mpCalFirmware->mnCalibrations) {
+		dev_err(pTAS2557->dev, "%s, no calibration data\n", __func__);
+		goto end;
+	}
+
+	if (pTAS2557->mnLPGID == TAS2557_PG_VERSION_2P1)
+		nReg = TAS2557_PG2P1_CALI_R0_REG;
+	else
+		nReg = TAS2557_PG1P0_CALI_R0_REG;
+
+	if (chl == channel_left)
+		nBlockType = TAS2557_BLOCK_CFG_COEFF_DEV_A;
+	else
+		nBlockType = TAS2557_BLOCK_CFG_COEFF_DEV_B;
+
+	pCalibration = &(pTAS2557->mpCalFirmware->mpCalibrations[pTAS2557->mnCurrentCalibration]);
+	pData = &(pCalibration->mData);
+
+	for (n = 0; n < pData->mnBlocks; n++) {
+		pBlock = &(pData->mpBlocks[n]);
+		if (pBlock->mnType == nBlockType) {
+			pCommands = pBlock->mpData;
+			for (nn = 0 ; nn < pBlock->mnCommands;) {
+				nBook = pCommands[4 * nn + 0];
+				nPage = pCommands[4 * nn + 1];
+				nOffset = pCommands[4 * nn + 2];
+				if ((nOffset < 0x7f) || (nOffset == 0x81))
+					nn++;
+				else if (nOffset == 0x85) {
+					len = ((int)nBook << 8) | nPage; 
+
+					nBook = pCommands[4 * nn + 4];
+					nPage = pCommands[4 * nn + 5];
+					nOffset = pCommands[4 * nn + 6];
+					if ((nBook == TAS2557_BOOK_ID(nReg))
+						&& (nPage == TAS2557_PAGE_ID(nReg))
+						&& (nOffset == TAS2557_PAGE_REG(nReg))) {
+							nCali_Re = ((int)pCommands[4 * nn + 7] << 24)
+										| ((int)pCommands[4 * nn + 8] << 16)
+										| ((int)pCommands[4 * nn + 9] << 8)
+										| (int)pCommands[4 * nn + 10];
+							bFound = true;
+							break;
+					} else {
+						nn ++;
+						nn += ((len -1) / 4);
+						if ((len - 1) % 4)
+							nn++;
+					}
+				} else
+					dev_err(pTAS2557->dev, "%s, format error %d\n", __func__, nOffset);
+			}
+			if (bFound)
+				break;
+		}
+	}
+
+end:
+
+	if (bFound)
+		*prm_r0 = nCali_Re;
+
+	return nResult;
+}
+
 int tas2557_parse_dt(struct device *dev, struct tas2557_priv *pTAS2557)
 {
 	struct device_node *np = dev->of_node;
