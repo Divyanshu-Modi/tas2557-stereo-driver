@@ -160,6 +160,7 @@
 #define TAS2557_CLKOUT_CDIV_REG			TAS2557_REG(0, 1, 118)
 #define TAS2557_HACK_GP01_REG			TAS2557_REG(0, 1, 122)
 
+#define TAS2557_SLEEPMODE_CTL_REG		TAS2557_REG(0, 2, 7)
 #define TAS2557_HACK01_REG			TAS2557_REG(0, 2, 10)
 
 #define TAS2557_ISENSE_THRESHOLD		TAS2557_REG(0, 50, 104)
@@ -194,6 +195,8 @@
 #define TAS2557_ISENSE_DIV_REG			TAS2557_REG(100, 0, 42)
 #define TAS2557_RAMP_CLK_DIV_MSB_REG		TAS2557_REG(100, 0, 43)
 #define TAS2557_RAMP_CLK_DIV_LSB_REG		TAS2557_REG(100, 0, 44)
+
+#define TAS2557_VBOOST_CTL_REG		TAS2557_REG(100, 0, 64)
 
 #define TAS2557_DIE_TEMP_REG			TAS2557_REG(130, 2, 124)	/* B0x82_P0x02_R0x7C */
 
@@ -310,6 +313,12 @@
 #define	TAS2557_DM_AL_BR		2	/* DevA left channel, DevB right channel */
 #define	TAS2557_DM_AR_BL		3	/* DevA right channel, DevB left channel */
 #define	TAS2557_DM_AH_BH		4	/* DevA (L+R)/2, DevB (L+R)/2 */
+
+#define	TAS2557_VBST_DEFAULT		0	/* firmware default */
+#define	TAS2557_VBST_A_ON			1	/* DevA always 8.5V, DevB default */
+#define	TAS2557_VBST_B_ON			2	/* DevA default, DevB always 8.5V */
+#define	TAS2557_VBST_A_ON_B_ON		(TAS2557_VBST_A_ON | TAS2557_VBST_B_ON)	/* both DevA and DevB always 8.5V */
+#define	TAS2557_VBST_NEED_DEFAULT	0xff	/* need default value */
 
 #define	ERROR_NONE			0x00000000
 #define	ERROR_PLL_ABSENT	0x00000001
@@ -491,6 +500,11 @@ struct tas2557_priv {
 	unsigned int mnChannelState;
 	unsigned char mnDevAChlData[16];
 	unsigned char mnDevBChlData[16];
+
+	unsigned int mnVBoostState;
+	bool mbLoadVBoostPrePowerUp;
+	unsigned int mnVBoostNewState;
+	unsigned int mnVBoostDefaultCfg[4];
 
 	/* for low temperature check */
 	unsigned int mnDevGain;

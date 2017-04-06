@@ -306,11 +306,12 @@ static int tas2557_DevA_Cali_get(struct snd_kcontrol *pKcontrol,
 #endif
 	struct tas2557_priv *pTAS2557 = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
-	int prm_r0;
+	int prm_r0 = 0;
 
 	mutex_lock(&pTAS2557->codec_lock);
 
 	ret = tas2557_get_Cali_prm_r0(pTAS2557, channel_left, &prm_r0);
+	pValue->value.integer.value[0] = prm_r0;
 	dev_dbg(pTAS2557->dev, "%s = 0x%x\n", __func__, prm_r0);
 
 	mutex_unlock(&pTAS2557->codec_lock);
@@ -327,11 +328,12 @@ static int tas2557_DevB_Cali_get(struct snd_kcontrol *pKcontrol,
 #endif
 	struct tas2557_priv *pTAS2557 = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
-	int prm_r0;
+	int prm_r0 = 0;
 
 	mutex_lock(&pTAS2557->codec_lock);
 
 	ret = tas2557_get_Cali_prm_r0(pTAS2557, channel_right, &prm_r0);
+	pValue->value.integer.value[0] = prm_r0;
 	dev_dbg(pTAS2557->dev, "%s = 0x%x\n", __func__, prm_r0);
 
 	mutex_unlock(&pTAS2557->codec_lock);
@@ -594,6 +596,56 @@ static int tas2557_dsp_chl_setup_put(struct snd_kcontrol *pKcontrol,
 	return 0;
 }
 
+static const char * const vboost_ctl_text[] = {
+	"default",
+	"Device(s) AlwaysOn"
+};
+
+static const struct soc_enum vboost_ctl_enum[] = {
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(vboost_ctl_text), vboost_ctl_text),
+};
+
+static int tas2557_vboost_ctl_get(struct snd_kcontrol *pKcontrol,
+			struct snd_ctl_elem_value *pValue)
+{
+#ifdef KCONTROL_CODEC
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
+#else
+	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
+#endif
+	struct tas2557_priv *pTAS2557 = snd_soc_codec_get_drvdata(codec);
+	int nResult = 0, nVBoost = 0;
+
+	mutex_lock(&pTAS2557->codec_lock);
+
+	nResult = tas2557_get_VBoost(pTAS2557, &nVBoost);
+	if (nResult >= 0)
+		pValue->value.integer.value[0] = nVBoost;
+
+	mutex_unlock(&pTAS2557->codec_lock);
+
+	return 0;
+}
+
+static int tas2557_vboost_ctl_put(struct snd_kcontrol *pKcontrol,
+			struct snd_ctl_elem_value *pValue)
+{
+#ifdef KCONTROL_CODEC
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(pKcontrol);
+#else
+	struct snd_soc_codec *codec = snd_kcontrol_chip(pKcontrol);
+#endif
+	struct tas2557_priv *pTAS2557 = snd_soc_codec_get_drvdata(codec);
+	int vboost_state = pValue->value.integer.value[0];
+
+	mutex_lock(&pTAS2557->codec_lock);
+
+	tas2557_set_VBoost(pTAS2557, vboost_state, pTAS2557->mbPowerUp);
+
+	mutex_unlock(&pTAS2557->codec_lock);
+	return 0;
+}
+
 static const char * const echoref_ctl_text[] = {"left channel", "right channel", "both channel"};
 static const struct soc_enum echoref_ctl_enum[] = {
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(echoref_ctl_text), echoref_ctl_text),
@@ -661,6 +713,8 @@ static const struct snd_kcontrol_new tas2557_snd_controls[] = {
 		tas2557_calibration_get, tas2557_calibration_put),
 	SOC_ENUM_EXT("Stereo DSPChl Setup", chl_setup_enum[0],
 		tas2557_dsp_chl_setup_get, tas2557_dsp_chl_setup_put),
+	SOC_ENUM_EXT("VBoost Ctrl", vboost_ctl_enum[0],
+		tas2557_vboost_ctl_get, tas2557_vboost_ctl_put),
 	SOC_ENUM_EXT("Stereo EchoRef Ctrl", echoref_ctl_enum[0],
 		tas2557_echoref_ctl_get, tas2557_echoref_ctl_put),
 };
