@@ -98,7 +98,7 @@ static unsigned int p_tas2557_startup_data[] = {
 	TAS2557_POWER_CTRL2_REG, 0xA3,	 /* Class-D, Boost, IV sense power up */
 	TAS2557_POWER_CTRL1_REG, 0xF8,	 /* PLL, DSP, clock dividers power up */
 	TAS2557_UDELAY, 2000,		/* delay */
-	TAS2557_CLK_ERR_CTRL, 0x03,	/* enable clock error detection */
+	TAS2557_CLK_ERR_CTRL, 0x0b,	/* enable clock error detection */
 	0xFFFFFFFF, 0xFFFFFFFF
 };
 
@@ -791,11 +791,13 @@ prog_coefficient:
 		nResult = tas2557_dev_load_data(pTAS2557, pNewConfiguration->mnDevices, p_tas2557_startup_data);
 		if (nResult < 0)
 			goto end;
-		nResult = tas2557_checkPLL(pTAS2557);
-		if (nResult < 0) {
-			nResult = tas2557_dev_load_data(pTAS2557, pNewConfiguration->mnDevices, p_tas2557_shutdown_data);
-			pTAS2557->mbPowerUp = false;
-			goto end;
+		if (pProgram->mnAppMode == TAS2557_APP_TUNINGMODE) {
+			nResult = tas2557_checkPLL(pTAS2557);
+			if (nResult < 0) {
+				nResult = tas2557_dev_load_data(pTAS2557, pNewConfiguration->mnDevices, p_tas2557_shutdown_data);
+				pTAS2557->mbPowerUp = false;
+				goto end;
+			}
 		}
 		dev_dbg(pTAS2557->dev,
 			"device powered up, load unmute\n");
