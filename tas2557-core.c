@@ -404,6 +404,48 @@ end:
 	return nResult;
 }
 
+int tas2557_update_VBstVolt(struct tas2557_priv *pTAS2557, enum channel chn)
+{
+	int nResult = 0;
+	unsigned int nVBstVoltSet = 0;
+
+	switch (pTAS2557->mnVBoostVoltage) {
+	case TAS2557_VBST_8P5V:
+		nVBstVoltSet = 6;
+		dev_warn(pTAS2557->dev, "%s, PPG of this snapshot should be 0dB\n", __func__);
+	break;
+
+	case TAS2557_VBST_8P1V:
+		nVBstVoltSet = 5;
+		dev_warn(pTAS2557->dev, "%s, PPG of this snapshot should be -1dB\n", __func__);
+	break;
+
+	case TAS2557_VBST_7P6V:
+		nVBstVoltSet = 4;
+		dev_warn(pTAS2557->dev, "%s, PPG of this snapshot should be -2dB\n", __func__);
+	break;
+
+	case TAS2557_VBST_6P6V:
+		nVBstVoltSet = 2;
+		dev_warn(pTAS2557->dev, "%s, PPG of this snapshot should be -3dB\n", __func__);
+	break;
+
+	default:
+		dev_err(pTAS2557->dev, "%s, error volt %d\n", __func__, pTAS2557->mnVBoostVoltage);
+	break;
+	}
+
+	if (nVBstVoltSet > 0) {
+		if (chn & channel_left)
+			nResult = pTAS2557->update_bits(pTAS2557, channel_left, TAS2557_VBST_VOLT_REG, 0xe0, (nVBstVoltSet << 5));
+		if (chn & channel_right)
+			nResult = pTAS2557->update_bits(pTAS2557, channel_right, TAS2557_VBST_VOLT_REG, 0xe0, (nVBstVoltSet << 5));
+		dev_dbg(pTAS2557->dev, "%s, set vbst voltage (%d channel) 0x%x\n", __func__, chn, (nVBstVoltSet << 5));
+	}
+
+	return nResult;
+}
+
 int tas2557_get_VBoost(struct tas2557_priv *pTAS2557, int *pVBoost)
 {
 	int nResult = 0;
@@ -485,6 +527,9 @@ int tas2557_set_VBoost(struct tas2557_priv *pTAS2557, int vboost, bool bPowerOn)
 	if (vboost) {
 		if (pConfiguration->mnDevices & channel_left) {
 			if (!(pTAS2557->mnVBoostState & TAS2557_VBST_A_ON)) {
+				nResult = tas2557_update_VBstVolt(pTAS2557, channel_left);
+				if (nResult < 0)
+					goto end;
 				nDevAVBstCtrl = 0x40;
 				nDevASlpCtrl = 0xb0;
 				nResult = pTAS2557->write(pTAS2557, channel_left, TAS2557_VBOOST_CTL_REG, nDevAVBstCtrl);
@@ -498,6 +543,9 @@ int tas2557_set_VBoost(struct tas2557_priv *pTAS2557, int vboost, bool bPowerOn)
 			}
 		} else {
 			if (pTAS2557->mnVBoostState & TAS2557_VBST_A_ON) {
+				nResult = tas2557_update_VBstVolt(pTAS2557, channel_left);
+				if (nResult < 0)
+					goto end;
 				nDevAVBstCtrl = pTAS2557->mnVBoostDefaultCfg[0];
 				nDevASlpCtrl = pTAS2557->mnVBoostDefaultCfg[1];
 				nResult = pTAS2557->write(pTAS2557, channel_left, TAS2557_VBOOST_CTL_REG, nDevAVBstCtrl);
@@ -513,6 +561,9 @@ int tas2557_set_VBoost(struct tas2557_priv *pTAS2557, int vboost, bool bPowerOn)
 
 		if (pConfiguration->mnDevices & channel_right) {
 			if (!(pTAS2557->mnVBoostState & TAS2557_VBST_B_ON)) {
+				nResult = tas2557_update_VBstVolt(pTAS2557, channel_right);
+				if (nResult < 0)
+					goto end;
 				nDevBVBstCtrl = 0x40;
 				nDevBSlpCtrl = 0xb0;
 				nResult = pTAS2557->write(pTAS2557, channel_right, TAS2557_VBOOST_CTL_REG, nDevBVBstCtrl);
@@ -526,6 +577,9 @@ int tas2557_set_VBoost(struct tas2557_priv *pTAS2557, int vboost, bool bPowerOn)
 			}
 		}  else {
 			if (pTAS2557->mnVBoostState & TAS2557_VBST_B_ON) {
+				nResult = tas2557_update_VBstVolt(pTAS2557, channel_right);
+				if (nResult < 0)
+					goto end;
 				nDevBVBstCtrl = pTAS2557->mnVBoostDefaultCfg[2];
 				nDevBSlpCtrl = pTAS2557->mnVBoostDefaultCfg[3];
 				nResult = pTAS2557->write(pTAS2557, channel_right, TAS2557_VBOOST_CTL_REG, nDevBVBstCtrl);
@@ -544,6 +598,9 @@ int tas2557_set_VBoost(struct tas2557_priv *pTAS2557, int vboost, bool bPowerOn)
 		nDevBVBstCtrl = pTAS2557->mnVBoostDefaultCfg[2];
 		nDevBSlpCtrl = pTAS2557->mnVBoostDefaultCfg[3];
 		if (pTAS2557->mnVBoostState & TAS2557_VBST_A_ON) {
+			nResult = tas2557_update_VBstVolt(pTAS2557, channel_left);
+			if (nResult < 0)
+				goto end;
 			nResult = pTAS2557->write(pTAS2557, channel_left, TAS2557_VBOOST_CTL_REG, nDevAVBstCtrl);
 			if (nResult < 0)
 				goto end;
@@ -554,6 +611,9 @@ int tas2557_set_VBoost(struct tas2557_priv *pTAS2557, int vboost, bool bPowerOn)
 			dev_dbg(pTAS2557->dev, "%s, devA Boost default, %d\n", __func__, pTAS2557->mnVBoostState);
 		}
 		if (pTAS2557->mnVBoostState & TAS2557_VBST_B_ON) {
+			nResult = tas2557_update_VBstVolt(pTAS2557, channel_right);
+			if (nResult < 0)
+				goto end;
 			nResult = pTAS2557->write(pTAS2557, channel_right, TAS2557_VBOOST_CTL_REG, nDevBVBstCtrl);
 			if (nResult < 0)
 				goto end;

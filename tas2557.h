@@ -176,7 +176,8 @@
 
 #define TAS2557_TEST_MODE_REG			TAS2557_REG(0, 253, 13)
 #define TAS2557_BROADCAST_REG			TAS2557_REG(0, 253, 54)
-#define TAS2557_CRYPTIC_REG			TAS2557_REG(0, 253, 71)
+#define TAS2557_VBST_VOLT_REG			TAS2557_REG(0, 253, 58)
+#define TAS2557_CRYPTIC_REG				TAS2557_REG(0, 253, 71)
 
 #define TAS2557_XMEM_687_REG				TAS2557_REG(78, 23, 116)	/* B0x78_P0x23_R0x40 */
 
@@ -319,6 +320,11 @@
 #define	TAS2557_VBST_B_ON			2	/* DevA default, DevB always 8.5V */
 #define	TAS2557_VBST_A_ON_B_ON		(TAS2557_VBST_A_ON | TAS2557_VBST_B_ON)	/* both DevA and DevB always 8.5V */
 #define	TAS2557_VBST_NEED_DEFAULT	0xff	/* need default value */
+
+#define	TAS2557_VBST_8P5V	0	/* coresponding PPG 0dB */
+#define	TAS2557_VBST_8P1V	1	/* coresponding PPG -1dB */
+#define	TAS2557_VBST_7P6V	2	/* coresponding PPG -2dB */
+#define	TAS2557_VBST_6P6V	3	/* coresponding PPG -3dB */
 
 #define	ERROR_NONE			0x00000000
 #define	ERROR_PLL_ABSENT	0x00000001
@@ -503,6 +509,7 @@ struct tas2557_priv {
 
 	unsigned int mnVBoostState;
 	bool mbLoadVBoostPrePowerUp;
+	unsigned int mnVBoostVoltage;
 	unsigned int mnVBoostNewState;
 	unsigned int mnVBoostDefaultCfg[4];
 
