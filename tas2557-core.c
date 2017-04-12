@@ -430,6 +430,11 @@ int tas2557_update_VBstVolt(struct tas2557_priv *pTAS2557, enum channel chn)
 		dev_warn(pTAS2557->dev, "%s, PPG of this snapshot should be -3dB\n", __func__);
 	break;
 
+	case TAS2557_VBST_5P6V:
+		nVBstVoltSet = 0;
+		dev_warn(pTAS2557->dev, "%s, PPG of this snapshot should be -4dB\n", __func__);
+	break;
+
 	default:
 		dev_err(pTAS2557->dev, "%s, error volt %d\n", __func__, pTAS2557->mnVBoostVoltage);
 	break;

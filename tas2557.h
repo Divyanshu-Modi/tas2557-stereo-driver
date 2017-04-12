@@ -325,6 +325,7 @@
 #define	TAS2557_VBST_8P1V	1	/* coresponding PPG -1dB */
 #define	TAS2557_VBST_7P6V	2	/* coresponding PPG -2dB */
 #define	TAS2557_VBST_6P6V	3	/* coresponding PPG -3dB */
+#define	TAS2557_VBST_5P6V	4	/* coresponding PPG -4dB */
 
 #define	ERROR_NONE			0x00000000
 #define	ERROR_PLL_ABSENT	0x00000001

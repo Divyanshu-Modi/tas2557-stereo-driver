@@ -370,10 +370,14 @@ static int tas2557_program_put(struct snd_kcontrol *pKcontrol,
 #endif
 	struct tas2557_priv *pTAS2557 = snd_soc_codec_get_drvdata(codec);
 	unsigned int nProgram = pValue->value.integer.value[0];
-	int ret = 0;
+	int ret = 0, nConfiguration = -1;
 
 	mutex_lock(&pTAS2557->codec_lock);
-	ret = tas2557_set_program(pTAS2557, nProgram, -1);
+
+	if (nProgram == pTAS2557->mnCurrentProgram)
+		nConfiguration = pTAS2557->mnCurrentConfiguration;
+	ret = tas2557_set_program(pTAS2557, nProgram, nConfiguration);
+
 	mutex_unlock(&pTAS2557->codec_lock);
 	return ret;
 }
@@ -650,7 +654,8 @@ static const char * const vboost_volt_text[] = {
 	"8.6V",
 	"8.1V",
 	"7.6V",
-	"6.6V"
+	"6.6V",
+	"5.6V"
 };
 
 static const struct soc_enum vboost_volt_enum[] = {
@@ -686,6 +691,10 @@ static int tas2557_vboost_volt_get(struct snd_kcontrol *pKcontrol,
 
 	case TAS2557_VBST_6P6V:
 		nVBstVolt = 3;
+	break;
+
+	case TAS2557_VBST_5P6V:
+		nVBstVolt = 4;
 	break;
 
 	default:
@@ -729,6 +738,10 @@ static int tas2557_vboost_volt_put(struct snd_kcontrol *pKcontrol,
 
 	case 3:
 		pTAS2557->mnVBoostVoltage = TAS2557_VBST_6P6V;
+	break;
+
+	case 4:
+		pTAS2557->mnVBoostVoltage = TAS2557_VBST_5P6V;
 	break;
 
 	default:
