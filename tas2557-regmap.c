@@ -610,6 +610,10 @@ void tas2557_enableIRQ(struct tas2557_priv *pTAS2557, enum channel chl, bool ena
 					}
 				}
 			}
+			if (bLeftChlEnable || bRightChlEnable) {
+				/* check after 10 ms */
+				schedule_delayed_work(&pTAS2557->irq_work, msecs_to_jiffies(10));
+			}
 			pTAS2557->mbIRQEnable = true;
 		}
 	} else {

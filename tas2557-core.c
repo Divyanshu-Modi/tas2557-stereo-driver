@@ -765,11 +765,6 @@ static int tas2557_load_coefficient(struct tas2557_priv *pTAS2557,
 		bRestorePower = true;
 	}
 
-	if (pPrevConfiguration) {
-		if (pPrevConfiguration->mnPLL == pNewConfiguration->mnPLL)
-			goto prog_coefficient;
-	}
-
 	/* load PLL */
 	pPLL = &(pTAS2557->mpFirmware->mpPLLs[pNewConfiguration->mnPLL]);
 	dev_dbg(pTAS2557->dev, "load PLL: %s block for Configuration %s\n",
@@ -1782,6 +1777,7 @@ static int tas2557_load_block(struct tas2557_priv *pTAS2557, struct TBlock *pBlo
 	if (pBlock->mnType == TAS2557_BLOCK_PLL) {
 		pConfiguration = &(pTAS2557->mpFirmware->mpConfigurations[pTAS2557->mnCurrentConfiguration]);
 		chl = pConfiguration->mnDevices;
+		dev_dbg(pTAS2557->dev, "%s: PLL chl = %d\n", __func__, chl);
 	} else if ((pBlock->mnType == TAS2557_BLOCK_PGM_DEV_A)
 		|| (pBlock->mnType == TAS2557_BLOCK_CFG_COEFF_DEV_A)
 		|| (pBlock->mnType == TAS2557_BLOCK_CFG_PRE_DEV_A)) {
