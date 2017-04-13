@@ -559,10 +559,10 @@ static int tas2557_dev_update_bits(
 		TAS2557_PAGE_ID(nRegister));
 
 	if (nResult >= 0) {
-		if (chn&channel_left)
+		if (chn & channel_left)
 			tas2557_i2c_update_bits(pTAS2557, pTAS2557->mnLAddr, TAS2557_PAGE_REG(nRegister), nMask, nValue);
 
-		if (chn&channel_right)
+		if (chn & channel_right)
 			tas2557_i2c_update_bits(pTAS2557, pTAS2557->mnRAddr, TAS2557_PAGE_REG(nRegister), nMask, nValue);
 	}
 

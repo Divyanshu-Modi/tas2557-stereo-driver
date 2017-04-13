@@ -407,7 +407,7 @@ end:
 int tas2557_update_VBstVolt(struct tas2557_priv *pTAS2557, enum channel chn)
 {
 	int nResult = 0;
-	unsigned int nVBstVoltSet = 0;
+	int nVBstVoltSet = -1;
 
 	switch (pTAS2557->mnVBoostVoltage) {
 	case TAS2557_VBST_8P5V:
@@ -440,7 +440,7 @@ int tas2557_update_VBstVolt(struct tas2557_priv *pTAS2557, enum channel chn)
 	break;
 	}
 
-	if (nVBstVoltSet > 0) {
+	if (nVBstVoltSet >= 0) {
 		if (chn & channel_left)
 			nResult = pTAS2557->update_bits(pTAS2557, channel_left, TAS2557_VBST_VOLT_REG, 0xe0, (nVBstVoltSet << 5));
 		if (chn & channel_right)
