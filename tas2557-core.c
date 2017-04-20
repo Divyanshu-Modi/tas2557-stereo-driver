@@ -158,6 +158,10 @@ static int tas2557_enter_broadcast_mode(struct tas2557_priv *pTAS2557)
 {
 	int nResult = 0;
 
+	nResult = pTAS2557->write(pTAS2557, channel_both, TAS2557_TEST_MODE_REG, 0x0d);
+	if (nResult < 0)
+		goto end;
+
 	nResult = pTAS2557->write(pTAS2557, channel_left, TAS2557_BROADCAST_REG, (pTAS2557->mnLBroadcastSet & 0x1f) | 0x80);
 	if (nResult < 0)
 		goto end;
