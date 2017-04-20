@@ -592,7 +592,7 @@ void tas2557_enableIRQ(struct tas2557_priv *pTAS2557, enum channel chl, bool ena
 	if (enable) {
 		if (!pTAS2557->mbIRQEnable) {
 			if (chl & channel_left) {
-				if (pTAS2557->mnLeftChlIRQ != 0) {
+				if (gpio_is_valid(pTAS2557->mnLeftChlGpioINT)) {
 					enable_irq(pTAS2557->mnLeftChlIRQ);
 					bLeftChlEnable = true;
 				} else
@@ -600,15 +600,17 @@ void tas2557_enableIRQ(struct tas2557_priv *pTAS2557, enum channel chl, bool ena
 			}
 
 			if (chl & channel_right) {
-				if (pTAS2557->mnRightChlIRQ != 0) {
+				if (gpio_is_valid(pTAS2557->mnRightChlGpioINT)) {
 					if (pTAS2557->mnRightChlIRQ != pTAS2557->mnLeftChlIRQ) {
 						enable_irq(pTAS2557->mnRightChlIRQ);
 						bRightChlEnable = true;
 					} else if (!bLeftChlEnable) {
 						enable_irq(pTAS2557->mnRightChlIRQ);
 						bRightChlEnable = true;
-					}
-				}
+					} else
+						bRightChlEnable = false;
+				} else
+					bRightChlEnable = false;
 			}
 			if (bLeftChlEnable || bRightChlEnable) {
 				/* check after 10 ms */
@@ -618,13 +620,13 @@ void tas2557_enableIRQ(struct tas2557_priv *pTAS2557, enum channel chl, bool ena
 		}
 	} else {
 		if (pTAS2557->mbIRQEnable) {
-			if (pTAS2557->mnLeftChlIRQ != 0) {
+			if (gpio_is_valid(pTAS2557->mnLeftChlGpioINT)) {
 				if (bLeftChlEnable) {
 					disable_irq_nosync(pTAS2557->mnLeftChlIRQ);
 					bLeftChlEnable = false;
 				}
 			}
-			if (pTAS2557->mnRightChlIRQ != 0) {
+			if (gpio_is_valid(pTAS2557->mnRightChlGpioINT)) {
 				if (bRightChlEnable) {
 					disable_irq_nosync(pTAS2557->mnRightChlIRQ);
 					bRightChlEnable = false;

@@ -174,8 +174,8 @@
 
 #define TAS2557_SA_PG1P0_CHL_CTRL_REG	TAS2557_REG(0, 58, 120)	/* B0_P0x3a_R0x78 */
 
-#define TAS2557_TEST_MODE_REG			TAS2557_REG(0, 253, 13)
-#define TAS2557_BROADCAST_REG			TAS2557_REG(0, 253, 54)
+#define TAS2557_TEST_MODE_REG			TAS2557_REG(0, 253, 13)	/* B0_P0xfd_R0x0d */
+#define TAS2557_BROADCAST_REG			TAS2557_REG(0, 253, 54)	/* B0_P0xfd_R0x36 */
 #define TAS2557_VBST_VOLT_REG			TAS2557_REG(0, 253, 58)
 #define TAS2557_CRYPTIC_REG				TAS2557_REG(0, 253, 71)
 
@@ -458,6 +458,8 @@ struct tas2557_priv {
 	unsigned char mnLCurrentPage;
 	unsigned char mnRCurrentBook;
 	unsigned char mnRCurrentPage;
+	unsigned int mnLBroadcastSet;
+	unsigned int mnRBroadcastSet;
 	bool mbTILoadActive;
 	bool mbPowerUp;
 	bool mbLoadConfigurationPrePowerUp;

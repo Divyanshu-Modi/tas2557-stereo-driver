@@ -108,18 +108,6 @@ static unsigned int p_tas2557_unmute_data[] = {
 	0xFFFFFFFF, 0xFFFFFFFF
 };
 
-static unsigned int p_tas2557_enter_broadcast_data[] = {
-	TAS2557_TEST_MODE_REG, 0x0d,		 /* enter test mode */
-	TAS2557_BROADCAST_REG, 0x81,	 /* enable broadcast */
-	0xFFFFFFFF, 0xFFFFFFFF
-};
-
-static unsigned int p_tas2557_exit_broadcast_data[] = {
-	TAS2557_TEST_MODE_REG, 0x0d,		 /* enter test mode */
-	TAS2557_BROADCAST_REG, 0x01,	 /* disable broadcast */
-	0xFFFFFFFF, 0xFFFFFFFF
-};
-
 static unsigned int p_tas2557_shutdown_data[] = {
 	TAS2557_CLK_ERR_CTRL, 0x00,	 /* disable clock error detection */
 	TAS2557_SOFT_MUTE_REG, 0x01,	 /* soft mute */
@@ -164,6 +152,52 @@ static int tas2557_dev_load_data(struct tas2557_priv *pTAS2557,
 int tas2557_configIRQ(struct tas2557_priv *pTAS2557)
 {
 	return tas2557_dev_load_data(pTAS2557, channel_both, p_tas2557_irq_config);
+}
+
+static int tas2557_enter_broadcast_mode(struct tas2557_priv *pTAS2557)
+{
+	int nResult = 0;
+
+	nResult = pTAS2557->write(pTAS2557, channel_left, TAS2557_BROADCAST_REG, (pTAS2557->mnLBroadcastSet & 0x1f) | 0x80);
+	if (nResult < 0)
+		goto end;
+
+	nResult = pTAS2557->write(pTAS2557, channel_right, TAS2557_BROADCAST_REG, (pTAS2557->mnRBroadcastSet & 0x1f) | 0x80);
+	if (nResult < 0)
+		goto end;
+
+end:
+
+	return nResult;
+}
+
+static int tas2557_exit_broadcast_mode(struct tas2557_priv *pTAS2557)
+{
+	int nResult = 0;
+
+	nResult = pTAS2557->write(pTAS2557, channel_broadcast, TAS2557_TEST_MODE_REG, 0x0d);
+	if (nResult < 0)
+		goto end;
+
+	nResult = pTAS2557->write(pTAS2557, channel_broadcast, TAS2557_BROADCAST_REG, 0x01);
+	if (nResult < 0)
+		goto end;
+
+	nResult = pTAS2557->write(pTAS2557, channel_both, TAS2557_TEST_MODE_REG, 0x0d);
+	if (nResult < 0)
+		goto end;
+
+	nResult = pTAS2557->write(pTAS2557, channel_left, TAS2557_BROADCAST_REG, pTAS2557->mnLBroadcastSet & 0x1f);
+	if (nResult < 0)
+		goto end;
+
+	nResult = pTAS2557->write(pTAS2557, channel_right, TAS2557_BROADCAST_REG, pTAS2557->mnRBroadcastSet & 0x1f);
+	if (nResult < 0)
+		goto end;
+
+end:
+
+	return nResult;
 }
 
 /*
@@ -662,6 +696,21 @@ end:
 int tas2557_load_default(struct tas2557_priv *pTAS2557)
 {
 	int nResult = 0;
+
+	nResult = pTAS2557->write(pTAS2557, channel_both, TAS2557_TEST_MODE_REG, 0x0d);
+	if (nResult < 0)
+		goto end;
+
+	nResult = pTAS2557->read(pTAS2557, channel_left, TAS2557_BROADCAST_REG, &pTAS2557->mnLBroadcastSet);
+	if (nResult < 0)
+		goto end;
+
+	nResult = pTAS2557->read(pTAS2557, channel_right, TAS2557_BROADCAST_REG, &pTAS2557->mnRBroadcastSet);
+	if (nResult < 0)
+		goto end;
+
+	dev_dbg(pTAS2557->dev, "%s, DevA Trim=0x%x, DevB Trim=0x%x\n",
+		__func__, pTAS2557->mnLBroadcastSet, pTAS2557->mnRBroadcastSet);
 
 	nResult = tas2557_dev_load_data(pTAS2557, channel_both, p_tas2557_default_data);
 	if (nResult < 0)
@@ -1597,7 +1646,7 @@ static int doSingleRegCheckSum(struct tas2557_priv *pTAS2557, enum channel chl,
 	nResult = isYRAM(pTAS2557, &sCRCData, nBook, nPage, nReg, 1);
 	if (nResult == 1) {
 		if (chl == channel_broadcast) {
-			nResult = tas2557_dev_load_data(pTAS2557, channel_broadcast, p_tas2557_exit_broadcast_data);
+			nResult = tas2557_exit_broadcast_mode(pTAS2557);
 			if (nResult < 0)
 				goto end;
 		}
@@ -1614,7 +1663,7 @@ static int doSingleRegCheckSum(struct tas2557_priv *pTAS2557, enum channel chl,
 		}
 
 		if (chl == channel_broadcast)
-			nResult = tas2557_dev_load_data(pTAS2557, channel_both, p_tas2557_enter_broadcast_data);
+			nResult = tas2557_enter_broadcast_mode(pTAS2557);
 
 		if ((chl == channel_both) || (chl == channel_broadcast)) {
 			if ((nData1 != nData2) || (nData1 != nValue)) {
@@ -1692,7 +1741,7 @@ static int doMultiRegCheckSum(struct tas2557_priv *pTAS2557, enum channel chl,
 			goto end;
 		} else {
 			if (chl == channel_broadcast) {
-				nResult = tas2557_dev_load_data(pTAS2557, channel_broadcast, p_tas2557_exit_broadcast_data);
+				nResult = tas2557_exit_broadcast_mode(pTAS2557);
 				if (nResult < 0)
 					goto end;
 			}
@@ -1711,7 +1760,7 @@ static int doMultiRegCheckSum(struct tas2557_priv *pTAS2557, enum channel chl,
 			}
 
 			if (chl == channel_broadcast)
-				nResult = tas2557_dev_load_data(pTAS2557, channel_both, p_tas2557_enter_broadcast_data);
+				nResult = tas2557_enter_broadcast_mode(pTAS2557);
 
 			if ((chl == channel_both) || (chl == channel_broadcast)) {
 				if (memcmp(nBuf1, nBuf2, TCRCData.mnLen) != 0) {
@@ -1812,7 +1861,7 @@ start:
 	nCommand = 0;
 
 	if (chl == channel_broadcast) {
-		nResult = tas2557_dev_load_data(pTAS2557, channel_both, p_tas2557_enter_broadcast_data);
+		nResult = tas2557_enter_broadcast_mode(pTAS2557);
 		if (nResult < 0)
 			goto end;
 	}
@@ -1873,7 +1922,7 @@ start:
 	}
 
 	if (chl == channel_broadcast)
-		nResult = tas2557_dev_load_data(pTAS2557, channel_broadcast, p_tas2557_exit_broadcast_data);
+		nResult = tas2557_exit_broadcast_mode(pTAS2557);
 
 	if (pBlock->mbPChkSumPresent) {
 		if ((chl & channel_left) || (chl == channel_broadcast))
