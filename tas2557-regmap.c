@@ -672,6 +672,7 @@ static void irq_work_routine(struct work_struct *work)
 	struct TConfiguration *pConfiguration;
 	unsigned int nDevLInt1Status = 0, nDevLInt2Status = 0;
 	unsigned int nDevRInt1Status = 0, nDevRInt2Status = 0;
+	int nCounter = 2;
 	int nResult = 0;
 
 #ifdef CONFIG_TAS2557_CODEC_STEREO
@@ -757,7 +758,21 @@ static void irq_work_routine(struct work_struct *work)
 		} else {
 			dev_dbg(pTAS2557->dev, "IRQ status L: 0x%x, 0x%x\n",
 				nDevLInt1Status, nDevLInt2Status);
-			tas2557_dev_read(pTAS2557, channel_left, TAS2557_POWER_UP_FLAG_REG, &nDevLInt1Status);
+			nCounter = 2;
+			while (nCounter > 0) {
+				nResult = tas2557_dev_read(pTAS2557, channel_left, TAS2557_POWER_UP_FLAG_REG, &nDevLInt1Status);
+				if (nResult < 0)
+					goto program;
+				if ((nDevLInt1Status & 0xc0) == 0xc0)
+					break;
+				nCounter--;
+				if (nCounter > 0) {
+					/* in case check pow status just after power on TAS2557 */
+					dev_dbg(pTAS2557->dev, "PowSts L: 0x%x, check again after 10ms\n",
+						nDevLInt1Status);
+					msleep(10);
+				}
+			}
 			if ((nDevLInt1Status & 0xc0) != 0xc0) {
 				dev_err(pTAS2557->dev, "%s, Critical DevA ERROR B[%d]_P[%d]_R[%d]= 0x%x\n",
 					__func__,
@@ -834,7 +849,21 @@ static void irq_work_routine(struct work_struct *work)
 		} else {
 			dev_dbg(pTAS2557->dev, "IRQ status R: 0x%x, 0x%x\n",
 				nDevRInt1Status, nDevRInt2Status);
-			tas2557_dev_read(pTAS2557, channel_right, TAS2557_POWER_UP_FLAG_REG, &nDevRInt1Status);
+			nCounter = 2;
+			while (nCounter > 0) {
+				nResult = tas2557_dev_read(pTAS2557, channel_right, TAS2557_POWER_UP_FLAG_REG, &nDevRInt1Status);
+				if (nResult < 0)
+					goto program;
+				if ((nDevRInt1Status & 0xc0) == 0xc0)
+					break;
+				nCounter--;
+				if (nCounter > 0) {
+					/* in case check pow status just after power on TAS2557 */
+					dev_dbg(pTAS2557->dev, "PowSts R: 0x%x, check again after 10ms\n",
+						nDevRInt1Status);
+					msleep(10);
+				}
+			}
 			if ((nDevRInt1Status & 0xc0) != 0xc0) {
 				dev_err(pTAS2557->dev, "%s, Critical DevB ERROR B[%d]_P[%d]_R[%d]= 0x%x\n",
 					__func__,
