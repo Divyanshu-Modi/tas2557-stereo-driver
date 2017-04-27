@@ -726,6 +726,11 @@ int tas2557_load_default(struct tas2557_priv *pTAS2557)
 
 	/* enable DOUT tri-state for extra BCLKs */
 	nResult = pTAS2557->update_bits(pTAS2557, channel_both, TAS2557_ASI1_DAC_FORMAT_REG, 0x01, 0x01);
+	if (nResult < 0)
+		goto end;
+
+	/* Interrupt pin, low-highZ, high active driven */
+	nResult = pTAS2557->update_bits(pTAS2557, channel_both, TAS2557_GPIO_HIZ_CTRL2_REG, 0x30, 0x30);
 end:
 
 	return nResult;
