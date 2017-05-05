@@ -231,59 +231,88 @@ static int tas2557_change_book_page(
 {
 	int nResult = 0;
 
-	if (chn&channel_left) {
+	if (chn & channel_left) {
 		if (pTAS2557->mnLCurrentBook == nBook) {
 			if (pTAS2557->mnLCurrentPage != nPage) {
-				nResult = tas2557_i2c_write_device(pTAS2557, pTAS2557->mnLAddr, TAS2557_BOOKCTL_PAGE, nPage);
-				if (nResult >= 0)
-					pTAS2557->mnLCurrentPage = nPage;
+				nResult = tas2557_i2c_write_device(pTAS2557,
+					pTAS2557->mnLAddr, TAS2557_BOOKCTL_PAGE, nPage);
+				if (nResult < 0)
+					goto end;
+				pTAS2557->mnLCurrentPage = nPage;
 			}
 		} else {
-			nResult = tas2557_i2c_write_device(pTAS2557, pTAS2557->mnLAddr, TAS2557_BOOKCTL_PAGE, 0);
-			if (nResult >= 0) {
-				pTAS2557->mnLCurrentPage = 0;
-				nResult = tas2557_i2c_write_device(pTAS2557, pTAS2557->mnLAddr, TAS2557_BOOKCTL_REG, nBook);
-				pTAS2557->mnLCurrentBook = nBook;
-				if (nPage != 0) {
-					tas2557_i2c_write_device(pTAS2557, pTAS2557->mnLAddr, TAS2557_BOOKCTL_PAGE, nPage);
-					pTAS2557->mnLCurrentPage = nPage;
-				}
+			nResult = tas2557_i2c_write_device(pTAS2557,
+				pTAS2557->mnLAddr, TAS2557_BOOKCTL_PAGE, 0);
+			if (nResult < 0)
+				goto end;
+			pTAS2557->mnLCurrentPage = 0;
+			nResult = tas2557_i2c_write_device(pTAS2557,
+				pTAS2557->mnLAddr, TAS2557_BOOKCTL_REG, nBook);
+			if (nResult < 0)
+				goto end;
+			pTAS2557->mnLCurrentBook = nBook;
+			if (nPage != 0) {
+				nResult = tas2557_i2c_write_device(pTAS2557,
+					pTAS2557->mnLAddr, TAS2557_BOOKCTL_PAGE, nPage);
+				if (nResult < 0)
+					goto end;
+				pTAS2557->mnLCurrentPage = nPage;
 			}
 		}
 	}
 
-	if (chn&channel_right) {
+	if (chn & channel_right) {
 		if (pTAS2557->mnRCurrentBook == nBook) {
 			if (pTAS2557->mnRCurrentPage != nPage) {
-				nResult = tas2557_i2c_write_device(pTAS2557, pTAS2557->mnRAddr, TAS2557_BOOKCTL_PAGE, nPage);
-				if (nResult >= 0)
-					pTAS2557->mnRCurrentPage = nPage;
+				nResult = tas2557_i2c_write_device(pTAS2557,
+					pTAS2557->mnRAddr, TAS2557_BOOKCTL_PAGE, nPage);
+				if (nResult < 0)
+					goto end;
+				pTAS2557->mnRCurrentPage = nPage;
 			}
 		} else {
-			nResult = tas2557_i2c_write_device(pTAS2557, pTAS2557->mnRAddr, TAS2557_BOOKCTL_PAGE, 0);
-			if (nResult >= 0) {
-				pTAS2557->mnRCurrentPage = 0;
-				nResult = tas2557_i2c_write_device(pTAS2557, pTAS2557->mnRAddr, TAS2557_BOOKCTL_REG, nBook);
-				pTAS2557->mnRCurrentBook = nBook;
-				if (nPage != 0) {
-					tas2557_i2c_write_device(pTAS2557, pTAS2557->mnRAddr, TAS2557_BOOKCTL_PAGE, nPage);
-					pTAS2557->mnRCurrentPage = nPage;
-				}
+			nResult = tas2557_i2c_write_device(pTAS2557,
+				pTAS2557->mnRAddr, TAS2557_BOOKCTL_PAGE, 0);
+			if (nResult < 0)
+				goto end;
+			pTAS2557->mnRCurrentPage = 0;
+			nResult = tas2557_i2c_write_device(pTAS2557,
+				pTAS2557->mnRAddr, TAS2557_BOOKCTL_REG, nBook);
+			if (nResult < 0)
+				goto end;
+			pTAS2557->mnRCurrentBook = nBook;
+			if (nPage != 0) {
+				nResult = tas2557_i2c_write_device(pTAS2557,
+					pTAS2557->mnRAddr, TAS2557_BOOKCTL_PAGE, nPage);
+				if (nResult < 0)
+					goto end;
+				pTAS2557->mnRCurrentPage = nPage;
 			}
 		}
 	}
 
 	if (chn == channel_broadcast) {
-		nResult = tas2557_i2c_write_device(pTAS2557, TAS2557_BROADCAST_ADDR, TAS2557_BOOKCTL_PAGE, 0);
+		nResult = tas2557_i2c_write_device(pTAS2557,
+			TAS2557_BROADCAST_ADDR, TAS2557_BOOKCTL_PAGE, 0);
+		if (nResult < 0)
+			goto end;
+		pTAS2557->mnLCurrentPage = 0;
+		pTAS2557->mnRCurrentPage = 0;
+		nResult = tas2557_i2c_write_device(pTAS2557,
+			TAS2557_BROADCAST_ADDR, TAS2557_BOOKCTL_REG, nBook);
+		if (nResult < 0)
+			goto end;
+		pTAS2557->mnLCurrentBook = nBook;
+		pTAS2557->mnRCurrentBook = nBook;
+		nResult = tas2557_i2c_write_device(pTAS2557,
+			TAS2557_BROADCAST_ADDR, TAS2557_BOOKCTL_PAGE, nPage);
 		if (nResult >= 0) {
-			tas2557_i2c_write_device(pTAS2557, TAS2557_BROADCAST_ADDR, TAS2557_BOOKCTL_REG, nBook);
-			tas2557_i2c_write_device(pTAS2557, TAS2557_BROADCAST_ADDR, TAS2557_BOOKCTL_PAGE, nPage);
 			pTAS2557->mnLCurrentPage = nPage;
 			pTAS2557->mnRCurrentPage = nPage;
-			pTAS2557->mnLCurrentBook = nBook;
-			pTAS2557->mnRCurrentBook = nBook;
 		}
 	}
+
+end:
 
 	return nResult;
 }
@@ -304,36 +333,36 @@ static int tas2557_dev_read(
 
 	if (pTAS2557->mbTILoadActive) {
 		if (!(nRegister & 0x80000000)) {
-			mutex_unlock(&pTAS2557->dev_lock);
-			return 0; /* let only reads from TILoad pass. */
+			/* let only reads from TILoad pass. */
+			goto end;
 		}
 		nRegister &= ~0x80000000;
 
 		dev_dbg(pTAS2557->dev, "TiLoad R CH[%d] REG B[%d]P[%d]R[%d]\n",
-				chn,
-				TAS2557_BOOK_ID(nRegister),
-				TAS2557_PAGE_ID(nRegister),
-				TAS2557_PAGE_REG(nRegister));
+			chn, TAS2557_BOOK_ID(nRegister), TAS2557_PAGE_ID(nRegister),
+			TAS2557_PAGE_REG(nRegister));
 	}
 
-	nResult = tas2557_change_book_page(pTAS2557,
-							chn,
-							TAS2557_BOOK_ID(nRegister),
-							TAS2557_PAGE_ID(nRegister));
-	if (nResult >= 0) {
-		if (chn == channel_left)
-			nResult = tas2557_i2c_read_device(pTAS2557, pTAS2557->mnLAddr, TAS2557_PAGE_REG(nRegister), &Value);
-		else if (chn == channel_right)
-			nResult = tas2557_i2c_read_device(pTAS2557, pTAS2557->mnRAddr, TAS2557_PAGE_REG(nRegister), &Value);
-		else {
-			dev_err(pTAS2557->dev, "read chn ERROR %d\n", chn);
-			nResult = -1;
-		}
+	nResult = tas2557_change_book_page(pTAS2557, chn,
+		TAS2557_BOOK_ID(nRegister), TAS2557_PAGE_ID(nRegister));
+	if (nResult < 0)
+		goto end;
 
-		if (nResult >= 0)
-			*pValue = Value;
+	if (chn == channel_left)
+		nResult = tas2557_i2c_read_device(pTAS2557,
+			pTAS2557->mnLAddr, TAS2557_PAGE_REG(nRegister), &Value);
+	else if (chn == channel_right)
+		nResult = tas2557_i2c_read_device(pTAS2557,
+			pTAS2557->mnRAddr, TAS2557_PAGE_REG(nRegister), &Value);
+	else {
+		dev_err(pTAS2557->dev, "read chn ERROR %d\n", chn);
+		nResult = -1;
 	}
 
+	if (nResult >= 0)
+		*pValue = Value;
+
+end:
 	mutex_unlock(&pTAS2557->dev_lock);
 	return nResult;
 }
@@ -352,55 +381,51 @@ static int tas2557_dev_write(
 	mutex_lock(&pTAS2557->dev_lock);
 	if ((nRegister == 0xAFFEAFFE) && (nValue == 0xBABEBABE)) {
 		pTAS2557->mbTILoadActive = true;
-		mutex_unlock(&pTAS2557->dev_lock);
-
 		dev_dbg(pTAS2557->dev, "TiLoad Active\n");
-		return 0;
+		goto end;
 	}
 
 	if ((nRegister == 0xBABEBABE) && (nValue == 0xAFFEAFFE)) {
 		pTAS2557->mbTILoadActive = false;
-		mutex_unlock(&pTAS2557->dev_lock);
-
 		dev_dbg(pTAS2557->dev, "TiLoad DeActive\n");
-		return 0;
+		goto end;
 	}
 
 	if (pTAS2557->mbTILoadActive) {
 		if (!(nRegister & 0x80000000)) {
-			mutex_unlock(&pTAS2557->dev_lock);
-			return 0;/* let only writes from TILoad pass. */
+			/* let only writes from TILoad pass. */
+			goto end;
 		}
 		nRegister &= ~0x80000000;
 
 		dev_dbg(pTAS2557->dev, "TiLoad W CH[%d] REG B[%d]P[%d]R[%d] =0x%x\n",
-						chn,
-						TAS2557_BOOK_ID(nRegister),
-						TAS2557_PAGE_ID(nRegister),
-						TAS2557_PAGE_REG(nRegister),
-						nValue);
+			chn, TAS2557_BOOK_ID(nRegister), TAS2557_PAGE_ID(nRegister),
+			TAS2557_PAGE_REG(nRegister), nValue);
 	}
 
 	nResult = tas2557_change_book_page(pTAS2557,
-							chn,
-							TAS2557_BOOK_ID(nRegister),
-							TAS2557_PAGE_ID(nRegister));
+		chn, TAS2557_BOOK_ID(nRegister), TAS2557_PAGE_ID(nRegister));
+	if (nResult < 0)
+		goto end;
 
-	if (nResult >= 0) {
-		if (chn & channel_left)
-			nResult = tas2557_i2c_write_device(pTAS2557, pTAS2557->mnLAddr, TAS2557_PAGE_REG(nRegister), nValue);
+	if (chn & channel_left) {
+		nResult = tas2557_i2c_write_device(pTAS2557,
+			pTAS2557->mnLAddr, TAS2557_PAGE_REG(nRegister), nValue);
+		if (nResult < 0)
+			goto end;
+	}
+	if (chn & channel_right) {
+		nResult = tas2557_i2c_write_device(pTAS2557,
+			pTAS2557->mnRAddr, TAS2557_PAGE_REG(nRegister), nValue);
+		if (nResult < 0)
+			goto end;
+	}
+	if (chn == channel_broadcast)
+		nResult = tas2557_i2c_write_device(pTAS2557,
+			TAS2557_BROADCAST_ADDR, TAS2557_PAGE_REG(nRegister), nValue);
 
-		if (chn & channel_right)
-			nResult = tas2557_i2c_write_device(pTAS2557, pTAS2557->mnRAddr, TAS2557_PAGE_REG(nRegister), nValue);
-
-		if (chn == channel_broadcast)
-			nResult = tas2557_i2c_write_device(pTAS2557, TAS2557_BROADCAST_ADDR, TAS2557_PAGE_REG(nRegister), nValue);
-	} else
-		dev_err(pTAS2557->dev, "%s, chl %d set book %d page %d error\n",
-			__func__, chn, TAS2557_BOOK_ID(nRegister), TAS2557_PAGE_ID(nRegister));
-
+end:
 	mutex_unlock(&pTAS2557->dev_lock);
-
 	return nResult;
 }
 
@@ -421,41 +446,37 @@ static int tas2557_dev_bulk_read(
 	mutex_lock(&pTAS2557->dev_lock);
 	if (pTAS2557->mbTILoadActive) {
 		if (!(nRegister & 0x80000000)) {
-			mutex_unlock(&pTAS2557->dev_lock);
-			return 0; /* let only writes from TILoad pass. */
+			/* let only writes from TILoad pass. */
+			goto end;
 		}
 
 		nRegister &= ~0x80000000;
 		dev_dbg(pTAS2557->dev, "TiLoad BR CH[%d] REG B[%d]P[%d]R[%d], count=%d\n",
-				chn,
-				TAS2557_BOOK_ID(nRegister),
-				TAS2557_PAGE_ID(nRegister),
-				TAS2557_PAGE_REG(nRegister),
-				nLength);
+			chn, TAS2557_BOOK_ID(nRegister), TAS2557_PAGE_ID(nRegister),
+			TAS2557_PAGE_REG(nRegister), nLength);
 	}
 
 	nResult = tas2557_change_book_page(pTAS2557,
-									chn,
-									TAS2557_BOOK_ID(nRegister),
-									TAS2557_PAGE_ID(nRegister));
-	if (nResult >= 0) {
-		reg = TAS2557_PAGE_REG(nRegister);
-		if (chn == channel_left)
-			Addr = pTAS2557->mnLAddr;
-		else if (chn == channel_right)
-			Addr = pTAS2557->mnRAddr;
-		else {
-			dev_err(pTAS2557->dev, "bulk read chn ERROR %d\n", chn);
-			nResult = -1;
-		}
+		chn, TAS2557_BOOK_ID(nRegister), TAS2557_PAGE_ID(nRegister));
+	if (nResult < 0)
+		goto end;
 
-		if (nResult >= 0)
-			nResult = tas2557_i2c_bulkread_device(
-				pTAS2557, Addr, reg, pData, nLength);
+	reg = TAS2557_PAGE_REG(nRegister);
+	if (chn == channel_left)
+		Addr = pTAS2557->mnLAddr;
+	else if (chn == channel_right)
+		Addr = pTAS2557->mnRAddr;
+	else {
+		dev_err(pTAS2557->dev, "bulk read chn ERROR %d\n", chn);
+		nResult = -1;
 	}
 
-	mutex_unlock(&pTAS2557->dev_lock);
+	if (nResult >= 0)
+		nResult = tas2557_i2c_bulkread_device(
+			pTAS2557, Addr, reg, pData, nLength);
 
+end:
+	mutex_unlock(&pTAS2557->dev_lock);
 	return nResult;
 }
 
@@ -475,51 +496,42 @@ static int tas2557_dev_bulk_write(
 	mutex_lock(&pTAS2557->dev_lock);
 	if (pTAS2557->mbTILoadActive) {
 		if (!(nRegister & 0x80000000)) {
-			mutex_unlock(&pTAS2557->dev_lock);
-			return 0; /* let only writes from TILoad pass. */
+			/* let only writes from TILoad pass. */
+			goto end;
 		}
 
 		nRegister &= ~0x80000000;
 
 		dev_dbg(pTAS2557->dev, "TiLoad BW CH[%d] REG B[%d]P[%d]R[%d], count=%d\n",
-				chn,
-				TAS2557_BOOK_ID(nRegister),
-				TAS2557_PAGE_ID(nRegister),
-				TAS2557_PAGE_REG(nRegister),
-				nLength);
+			chn, TAS2557_BOOK_ID(nRegister), TAS2557_PAGE_ID(nRegister),
+			TAS2557_PAGE_REG(nRegister), nLength);
 	}
 
-	nResult = tas2557_change_book_page(
-		pTAS2557,
-		chn,
-		TAS2557_BOOK_ID(nRegister),
-		TAS2557_PAGE_ID(nRegister));
+	nResult = tas2557_change_book_page(pTAS2557,
+		chn, TAS2557_BOOK_ID(nRegister), TAS2557_PAGE_ID(nRegister));
 
 	if (nResult >= 0) {
 		reg = TAS2557_PAGE_REG(nRegister);
 		if (chn & channel_left) {
-			nResult = tas2557_i2c_bulkwrite_device(
-				pTAS2557,
-				pTAS2557->mnLAddr,
-				reg, pData, nLength);
+			nResult = tas2557_i2c_bulkwrite_device(pTAS2557,
+				pTAS2557->mnLAddr, reg, pData, nLength);
 			if (nResult < 0)
-				dev_err(pTAS2557->dev, "bulk write error %d\n", nResult);
+				goto end;
 		}
 
 		if (chn & channel_right) {
-			nResult = tas2557_i2c_bulkwrite_device(
-				pTAS2557,
-				pTAS2557->mnRAddr,
-				reg, pData, nLength);
+			nResult = tas2557_i2c_bulkwrite_device(pTAS2557,
+				pTAS2557->mnRAddr, reg, pData, nLength);
 			if (nResult < 0)
-				dev_err(pTAS2557->dev, "bulk write error %d\n", nResult);
+				goto end;
 		}
 
 		if (chn == channel_broadcast)
 			nResult = tas2557_i2c_bulkwrite_device(pTAS2557, TAS2557_BROADCAST_ADDR, reg, pData, nLength);
 	}
-	mutex_unlock(&pTAS2557->dev_lock);
 
+end:
+	mutex_unlock(&pTAS2557->dev_lock);
 	return nResult;
 }
 
@@ -539,33 +551,33 @@ static int tas2557_dev_update_bits(
 
 	if (pTAS2557->mbTILoadActive) {
 		if (!(nRegister & 0x80000000)) {
-			mutex_unlock(&pTAS2557->dev_lock);
-			return 0; /* let only writes from TILoad pass. */
+			/* let only writes from TILoad pass. */
+			goto end;
 		}
 
 		nRegister &= ~0x80000000;
 		dev_dbg(pTAS2557->dev, "TiLoad SB CH[%d] REG B[%d]P[%d]R[%d], mask=0x%x, value=0x%x\n",
-				chn,
-				TAS2557_BOOK_ID(nRegister),
-				TAS2557_PAGE_ID(nRegister),
-				TAS2557_PAGE_REG(nRegister),
-				nMask, nValue);
+			chn, TAS2557_BOOK_ID(nRegister), TAS2557_PAGE_ID(nRegister),
+			TAS2557_PAGE_REG(nRegister), nMask, nValue);
 	}
 
-	nResult = tas2557_change_book_page(
-		pTAS2557,
-		chn,
-		TAS2557_BOOK_ID(nRegister),
-		TAS2557_PAGE_ID(nRegister));
+	nResult = tas2557_change_book_page(pTAS2557, chn,
+		TAS2557_BOOK_ID(nRegister), TAS2557_PAGE_ID(nRegister));
+	if (nResult < 0)
+		goto end;
 
-	if (nResult >= 0) {
-		if (chn & channel_left)
-			tas2557_i2c_update_bits(pTAS2557, pTAS2557->mnLAddr, TAS2557_PAGE_REG(nRegister), nMask, nValue);
-
-		if (chn & channel_right)
-			tas2557_i2c_update_bits(pTAS2557, pTAS2557->mnRAddr, TAS2557_PAGE_REG(nRegister), nMask, nValue);
+	if (chn & channel_left) {
+		nResult = tas2557_i2c_update_bits(pTAS2557,
+			pTAS2557->mnLAddr, TAS2557_PAGE_REG(nRegister), nMask, nValue);
+		if (nResult < 0)
+			goto end;
 	}
 
+	if (chn & channel_right)
+		nResult = tas2557_i2c_update_bits(pTAS2557,
+			pTAS2557->mnRAddr, TAS2557_PAGE_REG(nRegister), nMask, nValue);
+
+end:
 	mutex_unlock(&pTAS2557->dev_lock);
 	return nResult;
 }
