@@ -496,6 +496,9 @@ struct tas2557_priv {
 	void (*enableIRQ)(struct tas2557_priv *pTAS2557,
 		enum channel chl, bool enable);
 	void (*hw_reset)(struct tas2557_priv *pTAS2557);
+	/* device is working, but system is suspended */
+	int (*runtime_suspend)(struct tas2557_priv *pTAS2557);
+	int (*runtime_resume)(struct tas2557_priv *pTAS2557);
 
 	int mnLeftChlGpioINT;
 	int mnRightChlGpioINT;
@@ -522,6 +525,9 @@ struct tas2557_priv {
 	unsigned int mnDieTvReadCounter;
 	struct hrtimer mtimer;
 	struct work_struct mtimerwork;
+
+	/* device is working, but system is suspended */
+	bool mbRuntimeSuspend;
 
 	unsigned int mnErrCode;
 #ifdef CONFIG_TAS2557_CODEC_STEREO

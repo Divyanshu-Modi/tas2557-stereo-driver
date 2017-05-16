@@ -508,6 +508,19 @@ static ssize_t tas2557_file_write(struct file *file, const char *buf, size_t cou
 	}
 	break;
 
+	case TIAUDIO_CMD_SUSPEND:
+	{
+		if (count == 2) {
+			bool bSuspend = (p_kBuf[1] != 0);
+
+			if (bSuspend)
+				pTAS2557->runtime_suspend(pTAS2557);
+			else
+				pTAS2557->runtime_resume(pTAS2557);
+		}
+	}
+	break;
+
 	default:
 		pTAS2557->mnDBGCmd = 0;
 	break;
