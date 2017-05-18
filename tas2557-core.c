@@ -2063,8 +2063,8 @@ static int tas2557_load_configuration(struct tas2557_priv *pTAS2557,
 	if (pTAS2557->mbPowerUp) {
 		dev_err(pTAS2557->dev, "%s, device power on, load new conf[%d] %s\n", __func__,
 			nConfiguration, pNewConfiguration->mpName);
-		nResult = tas2557_load_coefficient(pTAS2557, pTAS2557->mnCurrentConfiguration, nConfiguration, true);
 		pTAS2557->mbLoadConfigurationPrePowerUp = false;
+		nResult = tas2557_load_coefficient(pTAS2557, pTAS2557->mnCurrentConfiguration, nConfiguration, true);
 	} else {
 		dev_dbg(pTAS2557->dev,
 			"TAS2557 was powered down, will load coefficient when power up\n");
