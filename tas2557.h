@@ -386,6 +386,8 @@ struct TConfiguration {
 	unsigned int mnProgram;
 	unsigned int mnPLL;
 	unsigned int mnSamplingRate;
+	unsigned char mnPLLSrc;
+	unsigned int mnPLLSrcRate;
 	struct TData mData;
 };
 
