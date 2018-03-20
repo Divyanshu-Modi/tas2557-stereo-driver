@@ -344,6 +344,7 @@
 #define	ERROR_UNDER_VOLTAGE	0x00000800
 #define	ERROR_OVER_CURRENT	0x00001000
 #define	ERROR_CLASSD_PWR	0x00002000
+#define	ERROR_SAFE_GUARD	0x00004000
 #define	ERROR_FAILSAFE		0x40000000
 
 #define	FLAG_CHECK_COUNTER	25
@@ -540,6 +541,7 @@ struct tas2557_priv {
 	*/
 	bool mbBypassTMax;
 
+	unsigned int mnRestart;
 #ifdef CONFIG_TAS2557_CODEC_STEREO
 	struct mutex codec_lock;
 #endif
