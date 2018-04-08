@@ -216,7 +216,8 @@ int tas2557_SA_DevChnSetup(struct tas2557_priv *pTAS2557, unsigned int mode)
 	unsigned char buf_DevA_Left_DevB_Right[16] = {0x40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x40, 0, 0, 0};
 	unsigned char buf_DevA_Right_DevB_Left[16] = {0, 0, 0, 0, 0x40, 0, 0, 0, 0x40, 0, 0, 0, 0, 0, 0, 0};
 	unsigned char buf_DevA_MonoMix_DevB_MonoMix[16] = {0x20, 0, 0, 0, 0x20, 0, 0, 0, 0x20, 0, 0, 0, 0x20, 0, 0, 0};
-	unsigned char *pDevABuf, *pDevBBuf;
+	unsigned char *pDevABuf = NULL;
+	unsigned char *pDevBBuf = NULL;
 
 	dev_dbg(pTAS2557->dev, "%s, mode %d\n", __func__, mode);
 	if ((pTAS2557->mpFirmware->mnPrograms == 0)
